@@ -1,14 +1,46 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const STORAGE_KEY = "edu_dashboard_v4";
+const STORAGE_KEY = "edu_dashboard_v5";
+
+// ─── Paleta Apple light ─────────────────────────────────
+const C = {
+  bg: "#FFFFFF",
+  bg2: "#F5F5F7",
+  bg3: "#FAFAFA",
+  border: "#E5E5EA",
+  border2: "#D1D1D6",
+  text: "#1D1D1F",
+  text2: "#6E6E73",
+  text3: "#86868B",
+  blue: "#007AFF",
+  green: "#34C759",
+  orange: "#FF9500",
+  red: "#FF3B30",
+  purple: "#AF52DE",
+  pink: "#FF2D92",
+  yellow: "#FFCC00",
+  teal: "#5AC8FA",
+};
+
+const COMIDAS_DEFAULT = {
+  desayuno: { id: 1, nombre: "Desayuno post-gym", cal: 410, prot: 45, carb: 40, gra: 8.5,
+    items: ["Avena 365 ½ cup", "Yogurt griego 0% ½ cup", "Leche whole ½ cup", "Whey 1 scoop"], completado: false, fijo: true },
+  lunch: { id: 2, nombre: "Lunch · pollo + arroz + papa", cal: 545, prot: 58, carb: 51, gra: 10.5,
+    items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"], completado: false, fijo: false,
+    plan: { nombre: "Lunch · pollo + arroz + papa", cal: 545, prot: 58, carb: 51, gra: 10.5,
+      items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"] } },
+  snack: { id: 3, nombre: "Snack 5pm · manzana", cal: 95, prot: 0, carb: 25, gra: 0,
+    items: ["1 manzana mediana"], completado: false, fijo: true },
+  cena: { id: 4, nombre: "Cena · igual que lunch", cal: 545, prot: 58, carb: 51, gra: 10.5,
+    items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"], completado: false, fijo: false,
+    plan: { nombre: "Cena · igual que lunch", cal: 545, prot: 58, carb: 51, gra: 10.5,
+      items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"] } },
+  noche: { id: 5, nombre: "Antes de dormir · tart cherry", cal: 130, prot: 1, carb: 32, gra: 0,
+    items: ["Tart cherry juice 240ml"], completado: false, fijo: true },
+};
 
 const DEFAULT_DATA = {
-  perfil: {
-    nombre: "Eduardo",
-    pesoActual: 75,
-    pesoMeta: 70,
-    pesoInicial: 76,
-  },
+  perfil: { nombre: "Eduardo", pesoActual: 75, pesoMeta: 70, pesoInicial: 76 },
   reto: {
     nombre: "100 Días Hard",
     fechaInicio: null,
@@ -25,27 +57,16 @@ const DEFAULT_DATA = {
     rentaFija: 2600,
     transacciones: [],
     categorias: [
-      { id: "comida", nombre: "Comida", color: "#34C77B" },
-      { id: "transporte", nombre: "Transporte", color: "#F5A623" },
-      { id: "salud", nombre: "Salud / Terapia", color: "#FF6B6B" },
-      { id: "social", nombre: "Social / Salir", color: "#A78BFA" },
-      { id: "ropa", nombre: "Ropa / Personal", color: "#EC4899" },
-      { id: "otros", nombre: "Otros", color: "#6B7280" },
+      { id: "comida", nombre: "Comida", color: C.green },
+      { id: "transporte", nombre: "Transporte", color: C.orange },
+      { id: "salud", nombre: "Salud", color: C.red },
+      { id: "social", nombre: "Social", color: C.purple },
+      { id: "ropa", nombre: "Ropa", color: C.pink },
+      { id: "otros", nombre: "Otros", color: C.text2 },
     ],
   },
   comidas: {
-    plan: [
-      { id: 1, nombre: "Desayuno post-gym", cal: 410, prot: 45, carb: 40, gra: 8.5,
-        items: ["Avena 365 ½ cup", "Yogurt griego 0% ½ cup", "Leche whole ½ cup", "Whey 1 scoop"], completado: false },
-      { id: 2, nombre: "Lunch · pollo + arroz + papa", cal: 545, prot: 58, carb: 51, gra: 10.5,
-        items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"], completado: false },
-      { id: 3, nombre: "Snack 5pm · manzana", cal: 95, prot: 0, carb: 25, gra: 0,
-        items: ["1 manzana mediana"], completado: false },
-      { id: 4, nombre: "Cena · igual que lunch", cal: 545, prot: 58, carb: 51, gra: 10.5,
-        items: ["Pollo airfryer 170g", "Arroz integral ½ sobre", "Baby Potato Blend ½ bolsa"], completado: false },
-      { id: 5, nombre: "Antes de dormir · tart cherry", cal: 130, prot: 1, carb: 32, gra: 0,
-        items: ["Tart cherry juice 240ml"], completado: false },
-    ],
+    plan: [COMIDAS_DEFAULT.desayuno, COMIDAS_DEFAULT.lunch, COMIDAS_DEFAULT.snack, COMIDAS_DEFAULT.cena, COMIDAS_DEFAULT.noche],
     metas: { cal: 1900, prot: 180, carb: 200, gra: 60 },
     agua: 0,
     metaAgua: 12,
@@ -91,22 +112,22 @@ function uid() { return Date.now() + Math.random(); }
 function hoy() { return new Date().toISOString().slice(0, 10); }
 function mesActual() { return new Date().toISOString().slice(0, 7); }
 
-function ProgressBar({ value, max, color = "#5B8DEF", height = 4 }) {
+function ProgressBar({ value, max, color = C.blue, height = 6 }) {
   const pct = Math.min(100, Math.round((value / max) * 100));
   return (
-    <div style={{ height, background: "#1E2433", borderRadius: 99, overflow: "hidden", width: "100%" }}>
+    <div style={{ height, background: C.bg2, borderRadius: 99, overflow: "hidden", width: "100%" }}>
       <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 99, transition: "width 0.6s cubic-bezier(.4,0,.2,1)" }} />
     </div>
   );
 }
 
-function Ring({ pct, size = 64, stroke = 6, color = "#5B8DEF" }) {
+function Ring({ pct, size = 64, stroke = 6, color = C.blue }) {
   const r = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (Math.min(100, pct) / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1E2433" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.bg2} strokeWidth={stroke} />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
         style={{ transition: "stroke-dasharray 0.8s cubic-bezier(.4,0,.2,1)" }} />
@@ -114,10 +135,10 @@ function Ring({ pct, size = 64, stroke = 6, color = "#5B8DEF" }) {
   );
 }
 
-function Badge({ label, color = "#5B8DEF" }) {
+function Badge({ label, color = C.blue }) {
   return (
-    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase",
-      background: color + "22", color, padding: "3px 8px", borderRadius: 99, border: `1px solid ${color}33` }}>
+    <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
+      background: color + "15", color, padding: "4px 10px", borderRadius: 99 }}>
       {label}
     </span>
   );
@@ -125,7 +146,7 @@ function Badge({ label, color = "#5B8DEF" }) {
 
 function Card({ children, style = {} }) {
   return (
-    <div style={{ background: "#111827", border: "1px solid #1E2A3A", borderRadius: 16, padding: 16, marginBottom: 12, ...style }}>
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 18, padding: 18, marginBottom: 12, ...style }}>
       {children}
     </div>
   );
@@ -133,22 +154,61 @@ function Card({ children, style = {} }) {
 
 function SectionTitle({ children }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#4B5563", marginBottom: 12 }}>
+    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 14, letterSpacing: "-0.01em" }}>
       {children}
     </div>
   );
 }
 
+// ─── Iconos SF style ───────────────────────────────────
+const Icons = {
+  home: (active) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1v-9.5z"
+        stroke={active ? C.blue : C.text3} strokeWidth="2" fill={active ? C.blue + "15" : "none"}
+        strokeLinejoin="round" />
+    </svg>
+  ),
+  flame: (active) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2s4 4 4 8a4 4 0 11-8 0c0-1 .5-2 1-3-1 1-2 3-2 5a6 6 0 0012 0c0-5-7-10-7-10z"
+        stroke={active ? C.orange : C.text3} strokeWidth="2" fill={active ? C.orange + "20" : "none"}
+        strokeLinejoin="round" />
+    </svg>
+  ),
+  dollar: (active) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke={active ? C.green : C.text3} strokeWidth="2" fill={active ? C.green + "15" : "none"} />
+      <path d="M12 6v12M9 9c0-1 1-2 3-2s3 1 3 2-1 2-3 2-3 1-3 2 1 2 3 2 3-1 3-2"
+        stroke={active ? C.green : C.text3} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  fork: (active) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <path d="M7 2v8a3 3 0 003 3v9M5 2v6M9 2v6M17 2c-2 0-3 2-3 5v5h6V7c0-3-1-5-3-5zM17 13v9"
+        stroke={active ? C.red : C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        fill={active ? C.red + "10" : "none"} />
+    </svg>
+  ),
+  body: (active) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="5" r="2.5" stroke={active ? C.purple : C.text3} strokeWidth="2" fill={active ? C.purple + "20" : "none"} />
+      <path d="M8 22v-7l-2-5a2 2 0 012-2h8a2 2 0 012 2l-2 5v7"
+        stroke={active ? C.purple : C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        fill={active ? C.purple + "10" : "none"} />
+    </svg>
+  ),
+};
+
 const TABS = [
-  { id: "home",     label: "Hoy",      icon: "◈" },
-  { id: "reto",     label: "100 Días", icon: "◉" },
-  { id: "habitos",  label: "Hábitos",  icon: "◇" },
-  { id: "dinero",   label: "Dinero",   icon: "◎" },
-  { id: "comida",   label: "Comida",   icon: "△" },
-  { id: "cuerpo",   label: "Cuerpo",   icon: "○" },
+  { id: "home",   label: "Hoy",      icon: Icons.home,   color: C.blue },
+  { id: "reto",   label: "100 Días", icon: Icons.flame,  color: C.orange },
+  { id: "dinero", label: "Dinero",   icon: Icons.dollar, color: C.green },
+  { id: "comida", label: "Comida",   icon: Icons.fork,   color: C.red },
+  { id: "cuerpo", label: "Cuerpo",   icon: Icons.body,   color: C.purple },
 ];
 
-// ─── HOME ──────────────────────────────────────────────
+// ─── HOME ───────────────────────────────────────────────
 function HomeTab({ data, setData }) {
   const gastosHoy = data.finanzas.transacciones.filter(t => t.fecha === hoy()).reduce((s, t) => s + t.monto, 0);
 
@@ -165,12 +225,20 @@ function HomeTab({ data, setData }) {
     setData(prev => {
       const habito = prev.habitos.reglas[i];
       const v = prev.habitos.hoy[i];
-      const newVal = habito.tipo === "horas"
-        ? (v === undefined ? 8 : undefined)
-        : (v === true ? false : true);
+      const newVal = habito.tipo === "horas" ? (v === undefined ? 8 : undefined) : (v === true ? false : true);
       const nuevoHoy = { ...prev.habitos.hoy };
       if (newVal === undefined || newVal === false) delete nuevoHoy[i];
       else nuevoHoy[i] = newVal;
+      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
+    });
+  };
+
+  const cambiarHoras = (i, val) => {
+    const num = parseFloat(val);
+    setData(prev => {
+      const nuevoHoy = { ...prev.habitos.hoy };
+      if (isNaN(num)) delete nuevoHoy[i];
+      else nuevoHoy[i] = num;
       return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
     });
   };
@@ -184,96 +252,108 @@ function HomeTab({ data, setData }) {
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: "#F9FAFB", fontFamily: "'DM Serif Display', Georgia, serif", letterSpacing: "-0.02em" }}>
-          Hola, {data.perfil.nombre}.
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+          Hola, {data.perfil.nombre}
         </div>
-        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 3, textTransform: "capitalize" }}>{fechaHoy} · FiDi</div>
+        <div style={{ fontSize: 14, color: C.text2, marginTop: 4, textTransform: "capitalize" }}>{fechaHoy}</div>
       </div>
 
       {/* Reto hero */}
-      <Card style={{ background: "linear-gradient(135deg, #2D1F0A 0%, #111827 100%)", border: "1px solid #4A3315", padding: 18 }}>
+      <Card style={{ background: `linear-gradient(135deg, ${C.orange}10 0%, ${C.bg} 60%)`, border: `1px solid ${C.orange}30`, padding: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 10, color: "#D88E1A", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{data.reto.nombre}</div>
-            <div style={{ fontSize: 56, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.04em", lineHeight: 0.95 }}>
-              {diaReto}<span style={{ fontSize: 22, color: "#D88E1A" }}> / 100</span>
+            <div style={{ fontSize: 12, color: C.orange, fontWeight: 600, marginBottom: 4 }}>{data.reto.nombre}</div>
+            <div style={{ fontSize: 60, fontWeight: 700, color: C.text, letterSpacing: "-0.04em", lineHeight: 0.95 }}>
+              {diaReto}<span style={{ fontSize: 24, color: C.text2, fontWeight: 600 }}> / 100</span>
             </div>
-            <div style={{ fontSize: 12, color: "#D88E1A", marginTop: 6 }}>
-              {diaReto === 0 ? "completa todo hoy para empezar 🔥" : `${100 - diaReto} días para terminar`}
+            <div style={{ fontSize: 13, color: C.text2, marginTop: 6 }}>
+              {diaReto === 0 ? "completa todo hoy para empezar" : `${100 - diaReto} días restantes`}
             </div>
           </div>
-          <div style={{ fontSize: 56, lineHeight: 1 }}>🔥</div>
+          <div style={{ fontSize: 56 }}>🔥</div>
         </div>
-        <div style={{ marginTop: 14 }}>
-          <ProgressBar value={diaReto} max={100} color="#F5A623" height={5} />
+        <div style={{ marginTop: 16 }}>
+          <ProgressBar value={diaReto} max={100} color={C.orange} height={8} />
         </div>
       </Card>
 
+      {/* Métricas */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-        <Card style={{ padding: 14 }}>
-          <div style={{ fontSize: 10, color: "#4B5563", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Hábitos hoy</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#A78BFA", letterSpacing: "-0.04em", lineHeight: 1 }}>{habitsHoy}/{totalHabits}</div>
-          <div style={{ marginTop: 8 }}><ProgressBar value={habitsHoy} max={totalHabits} color="#A78BFA" height={3} /></div>
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: C.text2, fontWeight: 600, marginBottom: 6 }}>Hábitos hoy</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color: C.purple, letterSpacing: "-0.03em", lineHeight: 1 }}>{habitsHoy}<span style={{ fontSize: 16, color: C.text3 }}>/{totalHabits}</span></div>
+          <div style={{ marginTop: 10 }}><ProgressBar value={habitsHoy} max={totalHabits} color={C.purple} height={4} /></div>
         </Card>
-        <Card style={{ padding: 14 }}>
-          <div style={{ fontSize: 10, color: "#4B5563", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Peso</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#34C77B", letterSpacing: "-0.04em", lineHeight: 1 }}>{data.perfil.pesoActual}<span style={{ fontSize: 14, color: "#6B7280" }}>kg</span></div>
-          <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>meta {data.perfil.pesoMeta}kg · {pesoPct}%</div>
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: C.text2, fontWeight: 600, marginBottom: 6 }}>Peso</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color: C.green, letterSpacing: "-0.03em", lineHeight: 1 }}>{data.perfil.pesoActual}<span style={{ fontSize: 14, color: C.text3 }}>kg</span></div>
+          <div style={{ fontSize: 12, color: C.text2, marginTop: 6 }}>meta {data.perfil.pesoMeta}kg · {pesoPct}%</div>
         </Card>
-        <Card style={{ padding: 14 }}>
-          <div style={{ fontSize: 10, color: "#4B5563", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Gastado hoy</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.04em", lineHeight: 1 }}>${gastosHoy}</div>
-          <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>de ${Math.round(data.finanzas.presupuesto / 30)} diario</div>
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: C.text2, fontWeight: 600, marginBottom: 6 }}>Gastado hoy</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color: C.orange, letterSpacing: "-0.03em", lineHeight: 1 }}>${gastosHoy}</div>
+          <div style={{ fontSize: 12, color: C.text2, marginTop: 6 }}>de ${Math.round(data.finanzas.presupuesto / 30)} diario</div>
         </Card>
-        <Card style={{ padding: 14 }}>
-          <div style={{ fontSize: 10, color: "#4B5563", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Calorías</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#5B8DEF", letterSpacing: "-0.04em", lineHeight: 1 }}>{calHoy}</div>
-          <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>de {data.comidas.metas.cal} meta</div>
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: C.text2, fontWeight: 600, marginBottom: 6 }}>Calorías</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color: C.blue, letterSpacing: "-0.03em", lineHeight: 1 }}>{calHoy}</div>
+          <div style={{ fontSize: 12, color: C.text2, marginTop: 6 }}>de {data.comidas.metas.cal}</div>
         </Card>
       </div>
 
+      {/* Hábitos hoy */}
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <SectionTitle>Hábitos de hoy</SectionTitle>
-          <Badge label="Toca para marcar" color="#A78BFA" />
+          <Badge label={`${habitsHoy}/${totalHabits}`} color={C.purple} />
         </div>
         {data.habitos.reglas.map((h, i) => {
           const val = data.habitos.hoy[i];
           const done = h.tipo === "horas" ? (val !== undefined && val >= 7) : val === true;
           return (
-            <div key={i} onClick={() => toggleHabito(i)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 0", borderBottom: "1px solid #1E2A3A", cursor: "pointer", opacity: done ? 1 : 0.6 }}>
-              <span style={{ fontSize: 14, color: done ? "#F9FAFB" : "#9CA3AF", fontWeight: done ? 500 : 400 }}>
-                {h.nombre}
-                {h.tipo === "horas" && val !== undefined && <span style={{ color: "#5B8DEF", marginLeft: 6, fontSize: 12 }}>{val}hrs</span>}
-              </span>
-              <div style={{ width: 22, height: 22, borderRadius: 7,
-                background: done ? "#34C77B" : "#1E2A3A",
-                border: done ? "none" : "1px solid #374151",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {done && <span style={{ fontSize: 12, color: "#0D1117" }}>✓</span>}
+            <div key={i} style={{ padding: "10px 0", borderBottom: i < data.habitos.reglas.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div onClick={() => toggleHabito(i)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                <span style={{ fontSize: 15, color: done ? C.text : C.text2, fontWeight: done ? 500 : 400 }}>
+                  {h.nombre}
+                  {h.tipo === "horas" && val !== undefined && <span style={{ color: C.blue, marginLeft: 8, fontSize: 13, fontWeight: 600 }}>{val}h</span>}
+                </span>
+                <div style={{ width: 26, height: 26, borderRadius: 13,
+                  background: done ? C.green : C.bg,
+                  border: done ? "none" : `1.5px solid ${C.border2}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  transition: "all 0.15s" }}>
+                  {done && <span style={{ fontSize: 14, color: C.bg, fontWeight: 700 }}>✓</span>}
+                </div>
               </div>
+              {h.tipo === "horas" && val !== undefined && (
+                <div style={{ marginTop: 8, paddingLeft: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: C.text2 }}>Horas:</span>
+                  <input type="number" step="0.5" value={val} onChange={e => cambiarHoras(i, e.target.value)}
+                    style={{ width: 70, padding: "6px 10px", fontSize: 14, background: C.bg2, border: "none", borderRadius: 8, color: C.blue, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
+                  <span style={{ fontSize: 11, color: val >= 7 ? C.green : C.red, fontWeight: 600 }}>{val >= 7 ? "✓ cuenta para reto" : "no cuenta"}</span>
+                </div>
+              )}
             </div>
           );
         })}
       </Card>
 
+      {/* Urgentes */}
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionTitle>Urgente</SectionTitle>
-          <button onClick={addUrgente} style={{ background: "none", border: "1px solid #1E2A3A", color: "#5B8DEF", padding: "3px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>+ añadir</button>
+          <button onClick={addUrgente} style={{ background: C.bg2, border: "none", color: C.blue, padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>+ añadir</button>
         </div>
         {data.urgentes.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 12 }}>Nada urgente · sigue así 🤙</div>
-        ) : data.urgentes.map(u => (
-          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #1E2A3A" }}>
-            <div style={{ width: 6, height: 6, borderRadius: 99, background: "#FF6B6B", flexShrink: 0 }} />
+          <div style={{ fontSize: 13, color: C.text3, textAlign: "center", padding: 16 }}>Nada urgente · sigue así 🤙</div>
+        ) : data.urgentes.map((u, idx) => (
+          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: idx < data.urgentes.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div style={{ width: 8, height: 8, borderRadius: 99, background: C.red, flexShrink: 0 }} />
             <input value={u.titulo} onChange={e => editarUrgente(u.id, e.target.value)}
-              style={{ flex: 1, fontSize: 13, color: "#F9FAFB", background: "transparent", border: "none", outline: "none", fontFamily: "inherit" }} />
-            <span style={{ fontSize: 11, color: "#6B7280" }}>{u.fecha}</span>
-            <button onClick={() => delUrgente(u.id)} style={{ background: "none", border: "none", color: "#4B5563", cursor: "pointer", fontSize: 14 }}>×</button>
+              style={{ flex: 1, fontSize: 14, color: C.text, background: "transparent", border: "none", outline: "none", fontFamily: "inherit" }} />
+            <span style={{ fontSize: 12, color: C.text2 }}>{u.fecha}</span>
+            <button onClick={() => delUrgente(u.id)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 16 }}>×</button>
           </div>
         ))}
       </Card>
@@ -281,7 +361,7 @@ function HomeTab({ data, setData }) {
   );
 }
 
-// ─── 100 DÍAS ─────────────────────────────────────────
+// ─── 100 DÍAS ──────────────────────────────────────────
 function RetoTab({ data, setData }) {
   const habitsHoy = data.habitos.reglas.filter((h, i) => {
     const v = data.habitos.hoy[i];
@@ -289,7 +369,7 @@ function RetoTab({ data, setData }) {
   }).length;
   const totalHabits = data.habitos.reglas.length;
   const allDone = habitsHoy === totalHabits;
-  const yaContado = data.reto.diasCompletados.includes(hoy());
+  const yaContado = data.reto.diasCompletados.includes(hoy()) || data.reto.diasCompletados.includes(hoy() + "_shield");
 
   const completarDia = () => {
     if (!allDone || yaContado) return;
@@ -330,96 +410,92 @@ function RetoTab({ data, setData }) {
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      <Card style={{ background: "linear-gradient(135deg, #2D1F0A 0%, #111827 100%)", border: "1px solid #4A3315", padding: 22, textAlign: "center" }}>
-        <div style={{ fontSize: 11, color: "#D88E1A", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>{data.reto.nombre}</div>
-        <div style={{ fontSize: 90, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.05em", lineHeight: 0.9, fontFamily: "'DM Serif Display', Georgia, serif" }}>
+      {/* Hero */}
+      <Card style={{ background: `linear-gradient(135deg, ${C.orange}10 0%, ${C.bg} 60%)`, border: `1px solid ${C.orange}30`, padding: 28, textAlign: "center" }}>
+        <div style={{ fontSize: 12, color: C.orange, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>{data.reto.nombre}</div>
+        <div style={{ fontSize: 96, fontWeight: 700, color: C.text, letterSpacing: "-0.05em", lineHeight: 0.9 }}>
           {data.reto.diaActual}
         </div>
-        <div style={{ fontSize: 14, color: "#D88E1A", marginTop: 4, fontWeight: 600 }}>de 100 días</div>
-        <div style={{ marginTop: 16 }}>
-          <ProgressBar value={data.reto.diaActual} max={100} color="#F5A623" height={6} />
+        <div style={{ fontSize: 16, color: C.text2, marginTop: 6, fontWeight: 500 }}>de 100 días</div>
+        <div style={{ marginTop: 20 }}>
+          <ProgressBar value={data.reto.diaActual} max={100} color={C.orange} height={10} />
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: "#D88E1A" }}>{data.reto.diaActual}%</span>
-          <span style={{ fontSize: 11, color: "#D88E1A" }}>{100 - data.reto.diaActual} días restantes</span>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+          <span style={{ fontSize: 12, color: C.text2, fontWeight: 600 }}>{data.reto.diaActual}%</span>
+          <span style={{ fontSize: 12, color: C.text2, fontWeight: 600 }}>{100 - data.reto.diaActual} restantes</span>
         </div>
       </Card>
 
-      {/* Estado de hoy */}
+      {/* Estado */}
       <Card>
         <SectionTitle>Estado de hoy</SectionTitle>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: allDone ? "#34C77B" : "#F5A623", letterSpacing: "-0.04em" }}>
-              {habitsHoy}<span style={{ fontSize: 16, color: "#6B7280" }}>/{totalHabits}</span>
+            <div style={{ fontSize: 32, fontWeight: 700, color: allDone ? C.green : C.orange, letterSpacing: "-0.03em", lineHeight: 1 }}>
+              {habitsHoy}<span style={{ fontSize: 16, color: C.text3 }}>/{totalHabits}</span>
             </div>
-            <div style={{ fontSize: 12, color: "#6B7280" }}>hábitos completados hoy</div>
+            <div style={{ fontSize: 13, color: C.text2, marginTop: 4 }}>hábitos completados</div>
           </div>
           {yaContado ? (
-            <Badge label="✓ Día contado" color="#34C77B" />
+            <Badge label="✓ Día contado" color={C.green} />
           ) : allDone ? (
             <button onClick={completarDia}
-              style={{ padding: "10px 18px", background: "#34C77B", color: "#0D1117", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "12px 20px", background: C.green, color: "white", border: "none", borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
               ✓ Completar día {data.reto.diaActual + 1}
             </button>
           ) : (
-            <Badge label={`faltan ${totalHabits - habitsHoy}`} color="#F5A623" />
+            <Badge label={`faltan ${totalHabits - habitsHoy}`} color={C.orange} />
           )}
         </div>
-        <ProgressBar value={habitsHoy} max={totalHabits} color={allDone ? "#34C77B" : "#F5A623"} height={4} />
+        <ProgressBar value={habitsHoy} max={totalHabits} color={allDone ? C.green : C.orange} height={6} />
       </Card>
 
       {/* Escudos */}
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionTitle>Escudos del mes</SectionTitle>
-          <span style={{ fontSize: 18, color: "#5B8DEF" }}>
+          <span style={{ fontSize: 22 }}>
             {Array.from({ length: data.reto.escudosMes }).map((_, i) => (
-              <span key={i} style={{ marginLeft: 4, opacity: i < escudosDisponibles ? 1 : 0.25 }}>🛡️</span>
+              <span key={i} style={{ marginLeft: 4, opacity: i < escudosDisponibles ? 1 : 0.2, filter: i < escudosDisponibles ? "none" : "grayscale(1)" }}>🛡️</span>
             ))}
           </span>
         </div>
-        <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12, lineHeight: 1.5 }}>
-          Si tienes un día imposible (viaje, enfermedad, evento), usa un escudo para que el día cuente sin tener que completar todos los hábitos. Tienes {escudosDisponibles} disponibles este mes.
+        <div style={{ fontSize: 13, color: C.text2, marginBottom: 14, lineHeight: 1.5 }}>
+          Para días imposibles (viaje, enfermedad). Tienes <b style={{ color: C.text }}>{escudosDisponibles}</b> disponibles este mes.
         </div>
         {!yaContado && escudosDisponibles > 0 && (
           <button onClick={usarEscudo}
-            style={{ width: "100%", padding: 10, background: "#1E2A3A", color: "#5B8DEF", border: "1px solid #1E3A5F", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ width: "100%", padding: 12, background: C.bg2, color: C.blue, border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             🛡️ Usar escudo y contar día
           </button>
         )}
       </Card>
 
-      {/* Calendario 100 días */}
+      {/* Mapa 100 días */}
       <Card>
         <SectionTitle>Mapa de 100 días</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 5 }}>
           {Array.from({ length: 100 }).map((_, i) => {
             const dia = i + 1;
             const completado = dia <= data.reto.diaActual;
             const esHoy = dia === data.reto.diaActual + 1;
             return (
               <div key={i} style={{
-                aspectRatio: 1,
-                borderRadius: 4,
-                background: completado ? "#34C77B" : esHoy ? "transparent" : "#1E2A3A",
-                border: esHoy ? "1.5px dashed #F5A623" : "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 8,
-                color: completado ? "#0D1117" : esHoy ? "#F5A623" : "#374151",
-                fontWeight: 700
+                aspectRatio: 1, borderRadius: 5,
+                background: completado ? C.green : esHoy ? C.bg : C.bg2,
+                border: esHoy ? `2px dashed ${C.orange}` : "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 9, color: completado ? "white" : esHoy ? C.orange : C.text3, fontWeight: 700
               }}>
                 {dia}
               </div>
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 12, fontSize: 10, color: "#6B7280" }}>
-          <span><span style={{ display: "inline-block", width: 8, height: 8, background: "#34C77B", borderRadius: 2, marginRight: 4 }} /> Completado</span>
-          <span><span style={{ display: "inline-block", width: 8, height: 8, border: "1px dashed #F5A623", borderRadius: 2, marginRight: 4 }} /> Hoy</span>
-          <span><span style={{ display: "inline-block", width: 8, height: 8, background: "#1E2A3A", borderRadius: 2, marginRight: 4 }} /> Pendiente</span>
+        <div style={{ display: "flex", gap: 14, marginTop: 14, fontSize: 11, color: C.text2 }}>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, background: C.green, borderRadius: 3, marginRight: 5, verticalAlign: "middle" }} /> Completado</span>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, border: `1.5px dashed ${C.orange}`, borderRadius: 3, marginRight: 5, verticalAlign: "middle" }} /> Hoy</span>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, background: C.bg2, borderRadius: 3, marginRight: 5, verticalAlign: "middle" }} /> Pendiente</span>
         </div>
       </Card>
 
@@ -427,7 +503,7 @@ function RetoTab({ data, setData }) {
       <Card>
         <SectionTitle>Zona peligrosa</SectionTitle>
         <button onClick={reiniciarReto}
-          style={{ width: "100%", padding: 10, background: "transparent", color: "#FF6B6B", border: "1px solid #4A1818", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: 12, background: "transparent", color: C.red, border: `1px solid ${C.red}40`, borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Reiniciar reto a día 0
         </button>
       </Card>
@@ -435,88 +511,7 @@ function RetoTab({ data, setData }) {
   );
 }
 
-// ─── HÁBITOS (simple, solo de hoy) ─────────────────────
-function HabitosTab({ data, setData }) {
-  const toggleHabito = (i) => {
-    setData(prev => {
-      const habito = prev.habitos.reglas[i];
-      const v = prev.habitos.hoy[i];
-      const newVal = habito.tipo === "horas"
-        ? (v === undefined ? 8 : undefined)
-        : (v === true ? false : true);
-      const nuevoHoy = { ...prev.habitos.hoy };
-      if (newVal === undefined || newVal === false) delete nuevoHoy[i];
-      else nuevoHoy[i] = newVal;
-      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
-    });
-  };
-
-  const cambiarHoras = (i, val) => {
-    const num = parseFloat(val);
-    setData(prev => {
-      const nuevoHoy = { ...prev.habitos.hoy };
-      if (isNaN(num)) delete nuevoHoy[i];
-      else nuevoHoy[i] = num;
-      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
-    });
-  };
-
-  const completados = data.habitos.reglas.filter((h, i) => {
-    const v = data.habitos.hoy[i];
-    return h.tipo === "horas" ? (v !== undefined && v >= 7) : v === true;
-  }).length;
-  const total = data.habitos.reglas.length;
-
-  return (
-    <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      <Card style={{ textAlign: "center", padding: 22 }}>
-        <div style={{ fontSize: 11, color: "#7C5CBF", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Progreso de hoy</div>
-        <div style={{ fontSize: 64, fontWeight: 700, color: completados === total ? "#34C77B" : "#A78BFA", letterSpacing: "-0.04em", lineHeight: 1, fontFamily: "'DM Serif Display', Georgia, serif" }}>
-          {completados}<span style={{ fontSize: 24, color: "#4B5563" }}>/{total}</span>
-        </div>
-        <div style={{ fontSize: 12, color: "#7C5CBF", marginTop: 6 }}>
-          {completados === total ? "🔥 Día perfecto · cuéntalo en el reto" : `faltan ${total - completados} para día perfecto`}
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <ProgressBar value={completados} max={total} color={completados === total ? "#34C77B" : "#A78BFA"} height={5} />
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle>Tus 9 hábitos · toca para marcar</SectionTitle>
-        {data.habitos.reglas.map((h, i) => {
-          const val = data.habitos.hoy[i];
-          const done = h.tipo === "horas" ? (val !== undefined && val >= 7) : val === true;
-          return (
-            <div key={i}
-              style={{ padding: "12px 0", borderBottom: "1px solid #1E2A3A" }}>
-              <div onClick={() => toggleHabito(i)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", opacity: done ? 1 : 0.7 }}>
-                <span style={{ fontSize: 15, color: done ? "#F9FAFB" : "#9CA3AF", fontWeight: done ? 500 : 400 }}>{h.nombre}</span>
-                <div style={{ width: 26, height: 26, borderRadius: 8,
-                  background: done ? "#34C77B" : "#1E2A3A",
-                  border: done ? "none" : "1px solid #374151",
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {done && <span style={{ fontSize: 14, color: "#0D1117" }}>✓</span>}
-                </div>
-              </div>
-              {h.tipo === "horas" && val !== undefined && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#6B7280" }}>Horas:</span>
-                  <input type="number" step="0.5" value={val} onChange={e => cambiarHoras(i, e.target.value)}
-                    style={{ width: 60, padding: "4px 8px", fontSize: 13, background: "#0D1117", border: "1px solid #1E3A5F", borderRadius: 6, color: "#5B8DEF", outline: "none", fontFamily: "inherit" }} />
-                  <span style={{ fontSize: 11, color: val >= 7 ? "#34C77B" : "#FF6B6B" }}>{val >= 7 ? "✓ cuenta" : "no cuenta"}</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </Card>
-    </div>
-  );
-}
-
-// ─── DINERO ─────────────────────────────────────────────
+// ─── DINERO ────────────────────────────────────────────
 function DineroTab({ data, setData }) {
   const [showForm, setShowForm] = useState(false);
   const [nuevoMonto, setNuevoMonto] = useState("");
@@ -539,10 +534,7 @@ function DineroTab({ data, setData }) {
     const cat = data.finanzas.categorias.find(c => c.id === nuevaCat);
     setData(prev => ({
       ...prev,
-      finanzas: {
-        ...prev.finanzas,
-        transacciones: [{ id: uid(), fecha: hoy(), monto, categoria: nuevaCat, nota: nuevaNota, color: cat?.color }, ...prev.finanzas.transacciones]
-      }
+      finanzas: { ...prev.finanzas, transacciones: [{ id: uid(), fecha: hoy(), monto, categoria: nuevaCat, nota: nuevaNota, color: cat?.color }, ...prev.finanzas.transacciones] }
     }));
     setNuevoMonto(""); setNuevaNota(""); setShowForm(false);
   };
@@ -553,68 +545,69 @@ function DineroTab({ data, setData }) {
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
       <Card>
         <SectionTitle>Mes actual</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
           {[
-            { l: "Ingreso", v: `$${data.finanzas.ingreso.toLocaleString()}`, c: "#34C77B" },
-            { l: "Gastado", v: `$${totalGastado.toLocaleString()}`, c: "#F9FAFB" },
-            { l: "Ahorro", v: `$${Math.max(0, ahorro).toLocaleString()}`, c: ahorro >= data.finanzas.ahorreMeta ? "#5B8DEF" : "#F5A623" },
+            { l: "Ingreso", v: `$${data.finanzas.ingreso.toLocaleString()}`, c: C.green },
+            { l: "Gastado", v: `$${totalGastado.toLocaleString()}`, c: C.text },
+            { l: "Ahorro", v: `$${Math.max(0, ahorro).toLocaleString()}`, c: ahorro >= data.finanzas.ahorreMeta ? C.blue : C.orange },
           ].map((s, i) => (
-            <div key={i} style={{ background: "#0D1117", borderRadius: 12, padding: "11px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: s.c }}>{s.v}</div>
-              <div style={{ fontSize: 9, color: "#4B5563", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.l}</div>
+            <div key={i} style={{ background: C.bg2, borderRadius: 14, padding: "14px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: s.c, letterSpacing: "-0.02em" }}>{s.v}</div>
+              <div style={{ fontSize: 11, color: C.text2, marginTop: 4, fontWeight: 600 }}>{s.l}</div>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-          <span style={{ fontSize: 11, color: "#6B7280" }}>Meta ahorro $2,000</span>
-          <span style={{ fontSize: 11, color: ahorro >= 2000 ? "#34C77B" : "#F5A623", fontWeight: 600 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: C.text2 }}>Meta ahorro $2,000</span>
+          <span style={{ fontSize: 12, color: ahorro >= 2000 ? C.green : C.orange, fontWeight: 600 }}>
             {ahorro >= 2000 ? "✓ logrado" : `faltan $${(2000 - ahorro).toLocaleString()}`}
           </span>
         </div>
-        <ProgressBar value={Math.max(0, ahorro)} max={2000} color={ahorro >= 2000 ? "#34C77B" : "#F5A623"} height={5} />
+        <ProgressBar value={Math.max(0, ahorro)} max={2000} color={ahorro >= 2000 ? C.green : C.orange} height={6} />
       </Card>
 
       {!showForm ? (
         <button onClick={() => setShowForm(true)}
-          style={{ width: "100%", padding: 14, background: "#5B8DEF", color: "#0D1117", border: "none", borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12, fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: 16, background: C.blue, color: "white", border: "none", borderRadius: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12, fontFamily: "inherit" }}>
           + Añadir gasto
         </button>
       ) : (
         <Card>
           <SectionTitle>Nuevo gasto</SectionTitle>
           <input type="number" inputMode="decimal" value={nuevoMonto} onChange={e => setNuevoMonto(e.target.value)} placeholder="$ Monto"
-            style={{ width: "100%", padding: 11, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 10, color: "#F9FAFB", fontSize: 16, marginBottom: 10, outline: "none", fontFamily: "inherit" }} autoFocus />
+            style={{ width: "100%", padding: 14, background: C.bg2, border: "none", borderRadius: 12, color: C.text, fontSize: 18, marginBottom: 10, outline: "none", fontFamily: "inherit", fontWeight: 600 }} autoFocus />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10 }}>
             {data.finanzas.categorias.map(c => (
               <button key={c.id} onClick={() => setNuevaCat(c.id)}
-                style={{ padding: "8px 4px", fontSize: 11, fontWeight: 600,
-                  background: nuevaCat === c.id ? c.color + "33" : "#0D1117",
-                  color: nuevaCat === c.id ? c.color : "#6B7280",
-                  border: `1px solid ${nuevaCat === c.id ? c.color + "66" : "#1E2A3A"}`,
-                  borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>{c.nombre}</button>
+                style={{ padding: "10px 6px", fontSize: 12, fontWeight: 600,
+                  background: nuevaCat === c.id ? c.color + "20" : C.bg2,
+                  color: nuevaCat === c.id ? c.color : C.text2,
+                  border: "none", borderRadius: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                {c.nombre}
+              </button>
             ))}
           </div>
           <input value={nuevaNota} onChange={e => setNuevaNota(e.target.value)} placeholder="Nota (opcional)"
-            style={{ width: "100%", padding: 11, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 10, color: "#F9FAFB", fontSize: 13, marginBottom: 10, outline: "none", fontFamily: "inherit" }} />
+            style={{ width: "100%", padding: 12, background: C.bg2, border: "none", borderRadius: 12, color: C.text, fontSize: 14, marginBottom: 10, outline: "none", fontFamily: "inherit" }} />
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 10, background: "#1E2A3A", color: "#9CA3AF", border: "none", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-            <button onClick={addTransaccion} style={{ flex: 2, padding: 10, background: "#34C77B", color: "#0D1117", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Guardar</button>
+            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 12, background: C.bg2, color: C.text2, border: "none", borderRadius: 12, fontSize: 14, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>Cancelar</button>
+            <button onClick={addTransaccion} style={{ flex: 2, padding: 12, background: C.green, color: "white", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Guardar</button>
           </div>
         </Card>
       )}
 
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <SectionTitle>Por categoría</SectionTitle>
-          <Badge label={`${pctVar}% de $1,400`} color={pctVar > 90 ? "#FF6B6B" : "#34C77B"} />
+          <Badge label={`${pctVar}% de $1,400`} color={pctVar > 90 ? C.red : C.green} />
         </div>
         {porCategoria.map(c => (
-          <div key={c.id} style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: "#D1D5DB" }}>{c.nombre}</span>
-              <span style={{ fontSize: 12, color: c.color, fontWeight: 600 }}>${c.total.toLocaleString()}</span>
+          <div key={c.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+              <span style={{ fontSize: 13, color: C.text }}>{c.nombre}</span>
+              <span style={{ fontSize: 13, color: c.color, fontWeight: 600 }}>${c.total.toLocaleString()}</span>
             </div>
-            <ProgressBar value={c.total} max={data.finanzas.presupuesto} color={c.color} height={3} />
+            <ProgressBar value={c.total} max={data.finanzas.presupuesto} color={c.color} height={4} />
           </div>
         ))}
       </Card>
@@ -622,18 +615,18 @@ function DineroTab({ data, setData }) {
       <Card>
         <SectionTitle>Historial</SectionTitle>
         {data.finanzas.transacciones.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 20 }}>Sin gastos aún</div>
-        ) : data.finanzas.transacciones.slice(0, 15).map(t => {
+          <div style={{ fontSize: 13, color: C.text3, textAlign: "center", padding: 24 }}>Sin gastos aún</div>
+        ) : data.finanzas.transacciones.slice(0, 15).map((t, idx) => {
           const cat = data.finanzas.categorias.find(c => c.id === t.categoria);
           return (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #1E2A3A" }}>
-              <div style={{ width: 8, height: 8, borderRadius: 99, background: cat?.color, flexShrink: 0 }} />
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", borderBottom: idx < Math.min(14, data.finanzas.transacciones.length - 1) ? `1px solid ${C.border}` : "none" }}>
+              <div style={{ width: 10, height: 10, borderRadius: 99, background: cat?.color, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: "#F9FAFB", fontWeight: 500 }}>{cat?.nombre}</div>
-                <div style={{ fontSize: 11, color: "#6B7280" }}>{t.fecha}{t.nota ? ` · ${t.nota}` : ""}</div>
+                <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{cat?.nombre}</div>
+                <div style={{ fontSize: 12, color: C.text2 }}>{t.fecha}{t.nota ? ` · ${t.nota}` : ""}</div>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: cat?.color }}>${t.monto}</span>
-              <button onClick={() => delTrans(t.id)} style={{ background: "none", border: "none", color: "#4B5563", cursor: "pointer", fontSize: 14 }}>×</button>
+              <span style={{ fontSize: 15, fontWeight: 700, color: cat?.color }}>${t.monto}</span>
+              <button onClick={() => delTrans(t.id)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 16 }}>×</button>
             </div>
           );
         })}
@@ -642,8 +635,11 @@ function DineroTab({ data, setData }) {
   );
 }
 
-// ─── COMIDA ─────────────────────────────────────────────
+// ─── COMIDA (con edición de lunch/cena) ────────────────
 function ComidaTab({ data, setData }) {
+  const [editandoId, setEditandoId] = useState(null);
+  const [edit, setEdit] = useState({ nombre: "", cal: "", prot: "", carb: "", gra: "" });
+
   const completadas = data.comidas.plan.filter(c => c.completado);
   const tot = completadas.reduce((s, c) => ({
     cal: s.cal + c.cal, prot: s.prot + c.prot, carb: s.carb + c.carb, gra: s.gra + c.gra
@@ -653,93 +649,195 @@ function ComidaTab({ data, setData }) {
   const toggleSupp = (id) => setData(prev => ({ ...prev, comidas: { ...prev.comidas, suplementos: prev.comidas.suplementos.map(s => s.id === id ? { ...s, completado: !s.completado } : s) } }));
   const addAgua = (n) => setData(prev => ({ ...prev, comidas: { ...prev.comidas, agua: Math.min(prev.comidas.agua + n, prev.comidas.metaAgua) } }));
 
+  const empezarEdit = (c) => {
+    setEditandoId(c.id);
+    setEdit({ nombre: c.nombre, cal: String(c.cal), prot: String(c.prot), carb: String(c.carb), gra: String(c.gra) });
+  };
+
+  const guardarEdit = () => {
+    setData(prev => ({
+      ...prev,
+      comidas: {
+        ...prev.comidas,
+        plan: prev.comidas.plan.map(c => c.id === editandoId ? {
+          ...c,
+          nombre: edit.nombre || c.nombre,
+          cal: parseFloat(edit.cal) || 0,
+          prot: parseFloat(edit.prot) || 0,
+          carb: parseFloat(edit.carb) || 0,
+          gra: parseFloat(edit.gra) || 0,
+          items: edit.nombre !== c.plan?.nombre ? [edit.nombre] : c.items,
+        } : c)
+      }
+    }));
+    setEditandoId(null);
+  };
+
+  const restaurarPlan = (id) => {
+    setData(prev => ({
+      ...prev,
+      comidas: {
+        ...prev.comidas,
+        plan: prev.comidas.plan.map(c => c.id === id && c.plan ? { ...c, ...c.plan, completado: c.completado } : c)
+      }
+    }));
+  };
+
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
+      {/* Macros hero */}
       <Card>
-        <SectionTitle>Hoy · plan v2</SectionTitle>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <SectionTitle>Hoy · plan</SectionTitle>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 38, fontWeight: 700, color: "#5B8DEF", letterSpacing: "-0.04em", lineHeight: 1 }}>{tot.cal}</div>
-            <div style={{ fontSize: 11, color: "#6B7280" }}>de {data.comidas.metas.cal} kcal</div>
+            <div style={{ fontSize: 42, fontWeight: 700, color: C.text, letterSpacing: "-0.04em", lineHeight: 1 }}>{tot.cal}</div>
+            <div style={{ fontSize: 13, color: C.text2, marginTop: 3 }}>de {data.comidas.metas.cal} kcal</div>
           </div>
           <div style={{ position: "relative" }}>
-            <Ring pct={(tot.cal / data.comidas.metas.cal) * 100} size={70} stroke={6} color="#5B8DEF" />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#5B8DEF" }}>
+            <Ring pct={(tot.cal / data.comidas.metas.cal) * 100} size={76} stroke={7} color={C.blue} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: C.blue }}>
               {Math.round((tot.cal / data.comidas.metas.cal) * 100)}%
             </div>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           {[
-            { l: "Proteína", v: tot.prot, m: data.comidas.metas.prot, c: "#34C77B" },
-            { l: "Carbs", v: tot.carb, m: data.comidas.metas.carb, c: "#F5A623" },
-            { l: "Grasa", v: tot.gra, m: data.comidas.metas.gra, c: "#FF6B6B" },
+            { l: "Proteína", v: tot.prot, m: data.comidas.metas.prot, c: C.green },
+            { l: "Carbs", v: tot.carb, m: data.comidas.metas.carb, c: C.orange },
+            { l: "Grasa", v: tot.gra, m: data.comidas.metas.gra, c: C.red },
           ].map((m, i) => (
-            <div key={i} style={{ background: "#0D1117", borderRadius: 10, padding: 10 }}>
-              <div style={{ fontSize: 10, color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4, fontWeight: 700 }}>{m.l}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: m.c }}>{Math.round(m.v)}<span style={{ fontSize: 10, color: "#6B7280", fontWeight: 400 }}>/{m.m}g</span></div>
-              <div style={{ marginTop: 6 }}><ProgressBar value={m.v} max={m.m} color={m.c} height={2} /></div>
+            <div key={i} style={{ background: C.bg2, borderRadius: 12, padding: 12 }}>
+              <div style={{ fontSize: 11, color: C.text2, fontWeight: 600, marginBottom: 4 }}>{m.l}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: m.c, letterSpacing: "-0.02em" }}>{Math.round(m.v)}<span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>/{m.m}g</span></div>
+              <div style={{ marginTop: 7 }}><ProgressBar value={m.v} max={m.m} color={m.c} height={3} /></div>
             </div>
           ))}
         </div>
       </Card>
 
+      {/* Comidas */}
       <Card>
         <SectionTitle>Comidas del día</SectionTitle>
-        {data.comidas.plan.map(c => (
-          <div key={c.id} onClick={() => toggleComida(c.id)}
-            style={{ padding: 12, borderRadius: 12, cursor: "pointer", marginBottom: 8,
-              background: c.completado ? "#0D2218" : "#0D1117",
-              border: `1px solid ${c.completado ? "#1A4A2E" : "#1E2A3A"}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                  background: c.completado ? "#34C77B" : "#1E2A3A",
-                  border: c.completado ? "none" : "1px solid #374151",
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {c.completado && <span style={{ fontSize: 11, color: "#0D1117" }}>✓</span>}
+        {data.comidas.plan.map(c => {
+          const isEditando = editandoId === c.id;
+          const editable = !c.fijo;
+          const cambiada = !c.fijo && c.plan && c.nombre !== c.plan.nombre;
+
+          if (isEditando) {
+            return (
+              <div key={c.id} style={{ padding: 14, borderRadius: 14, marginBottom: 10, background: C.bg2, border: `2px solid ${C.blue}` }}>
+                <div style={{ fontSize: 11, color: C.blue, fontWeight: 700, marginBottom: 10 }}>EDITANDO COMIDA</div>
+                <input value={edit.nombre} onChange={e => setEdit(s => ({ ...s, nombre: e.target.value }))} placeholder="Qué comiste"
+                  style={{ width: "100%", padding: 12, background: C.bg, border: "none", borderRadius: 10, fontSize: 15, marginBottom: 8, outline: "none", fontFamily: "inherit", color: C.text, fontWeight: 500 }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: C.text2, marginBottom: 4, fontWeight: 600 }}>CALORÍAS</div>
+                    <input type="number" value={edit.cal} onChange={e => setEdit(s => ({ ...s, cal: e.target.value }))}
+                      style={{ width: "100%", padding: 10, background: C.bg, border: "none", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: C.text2, marginBottom: 4, fontWeight: 600 }}>PROTEÍNA (g)</div>
+                    <input type="number" value={edit.prot} onChange={e => setEdit(s => ({ ...s, prot: e.target.value }))}
+                      style={{ width: "100%", padding: 10, background: C.bg, border: "none", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: C.text2, marginBottom: 4, fontWeight: 600 }}>CARBS (g)</div>
+                    <input type="number" value={edit.carb} onChange={e => setEdit(s => ({ ...s, carb: e.target.value }))}
+                      style={{ width: "100%", padding: 10, background: C.bg, border: "none", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: C.text2, marginBottom: 4, fontWeight: 600 }}>GRASA (g)</div>
+                    <input type="number" value={edit.gra} onChange={e => setEdit(s => ({ ...s, gra: e.target.value }))}
+                      style={{ width: "100%", padding: 10, background: C.bg, border: "none", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
+                  </div>
                 </div>
-                <span style={{ fontSize: 13, color: c.completado ? "#34C77B" : "#F9FAFB", fontWeight: 500 }}>{c.nombre}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setEditandoId(null)}
+                    style={{ flex: 1, padding: 11, background: C.bg, color: C.text2, border: "none", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+                    Cancelar
+                  </button>
+                  <button onClick={guardarEdit}
+                    style={{ flex: 2, padding: 11, background: C.blue, color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    Guardar
+                  </button>
+                </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: c.completado ? "#34C77B" : "#5B8DEF", flexShrink: 0 }}>{c.cal}cal</span>
+            );
+          }
+
+          return (
+            <div key={c.id} style={{ padding: 14, borderRadius: 14, marginBottom: 10,
+              background: c.completado ? C.green + "08" : C.bg2,
+              border: `1px solid ${c.completado ? C.green + "30" : C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div onClick={() => toggleComida(c.id)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 12, flexShrink: 0,
+                    background: c.completado ? C.green : C.bg,
+                    border: c.completado ? "none" : `1.5px solid ${C.border2}`,
+                    display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {c.completado && <span style={{ fontSize: 13, color: "white", fontWeight: 700 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, color: c.completado ? C.green : C.text, fontWeight: 600 }}>{c.nombre}</div>
+                    {cambiada && <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>· editado</span>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: c.completado ? C.green : C.blue }}>{c.cal}cal</span>
+                  {editable && (
+                    <button onClick={() => empezarEdit(c)}
+                      style={{ padding: "4px 8px", background: C.bg, color: C.blue, border: "none", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      editar
+                    </button>
+                  )}
+                  {cambiada && (
+                    <button onClick={() => restaurarPlan(c.id)}
+                      style={{ padding: "4px 8px", background: C.bg, color: C.orange, border: "none", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      ↺
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: C.text2, paddingLeft: 36, lineHeight: 1.5 }}>
+                {c.items.join(" · ")} <span style={{ color: C.text3 }}>· {c.prot}p · {c.carb}c · {c.gra}g</span>
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: "#6B7280", paddingLeft: 30, lineHeight: 1.5 }}>
-              {c.items.join(" · ")} · <span style={{ color: "#9CA3AF" }}>{c.prot}p · {c.carb}c · {c.gra}g</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </Card>
 
+      {/* Agua */}
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionTitle>Agua · meta 3L</SectionTitle>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#5B8DEF" }}>{data.comidas.agua}/{data.comidas.metaAgua}</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.blue }}>{data.comidas.agua}/{data.comidas.metaAgua}</span>
         </div>
-        <ProgressBar value={data.comidas.agua} max={data.comidas.metaAgua} color="#5B8DEF" height={6} />
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <ProgressBar value={data.comidas.agua} max={data.comidas.metaAgua} color={C.blue} height={8} />
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           {[1, 2, 3].map(n => (
             <button key={n} onClick={() => addAgua(n)}
-              style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 600, background: "#1E2A3A", color: "#5B8DEF", border: "1px solid #1E3A5F", borderRadius: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, background: C.blue + "15", color: C.blue, border: "none", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>
               +{n} vaso{n > 1 ? "s" : ""}
             </button>
           ))}
         </div>
       </Card>
 
+      {/* Suplementos */}
       <Card>
         <SectionTitle>Suplementos</SectionTitle>
-        {data.comidas.suplementos.map(s => (
+        {data.comidas.suplementos.map((s, idx) => (
           <div key={s.id} onClick={() => toggleSupp(s.id)}
-            style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #1E2A3A", cursor: "pointer" }}>
-            <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0,
-              background: s.completado ? "#34C77B" : "#1E2A3A",
-              border: s.completado ? "none" : "1px solid #374151",
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: idx < data.comidas.suplementos.length - 1 ? `1px solid ${C.border}` : "none", cursor: "pointer" }}>
+            <div style={{ width: 22, height: 22, borderRadius: 11, flexShrink: 0,
+              background: s.completado ? C.green : C.bg,
+              border: s.completado ? "none" : `1.5px solid ${C.border2}`,
               display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {s.completado && <span style={{ fontSize: 10, color: "#0D1117" }}>✓</span>}
+              {s.completado && <span style={{ fontSize: 12, color: "white", fontWeight: 700 }}>✓</span>}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: s.completado ? "#34C77B" : "#F9FAFB", fontWeight: 500 }}>{s.nombre}</div>
-              <div style={{ fontSize: 11, color: "#6B7280" }}>{s.momento}</div>
+              <div style={{ fontSize: 14, color: s.completado ? C.green : C.text, fontWeight: 500 }}>{s.nombre}</div>
+              <div style={{ fontSize: 12, color: C.text2 }}>{s.momento}</div>
             </div>
           </div>
         ))}
@@ -748,7 +846,7 @@ function ComidaTab({ data, setData }) {
   );
 }
 
-// ─── CUERPO ─────────────────────────────────────────────
+// ─── CUERPO ────────────────────────────────────────────
 function CuerpoTab({ data, setData }) {
   const fileRef = useRef(null);
   const [editPeso, setEditPeso] = useState(false);
@@ -781,9 +879,7 @@ function CuerpoTab({ data, setData }) {
     if (isNaN(r) || isNaN(s)) return;
     setData(prev => ({
       ...prev,
-      whoop: {
-        historial: [{ fecha: hoy(), recovery: r, sueno: s, strain: parseFloat(whoopForm.strain) || 0, hrv: parseFloat(whoopForm.hrv) || 0 }, ...prev.whoop.historial]
-      }
+      whoop: { historial: [{ fecha: hoy(), recovery: r, sueno: s, strain: parseFloat(whoopForm.strain) || 0, hrv: parseFloat(whoopForm.hrv) || 0 }, ...prev.whoop.historial] }
     }));
     setWhoopForm({ recovery: "", sueno: "", strain: "", hrv: "" });
   };
@@ -800,53 +896,54 @@ function CuerpoTab({ data, setData }) {
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      <Card style={{ background: "linear-gradient(135deg, #0A2E1B 0%, #111827 100%)", border: "1px solid #1A4A2E" }}>
+      {/* Peso hero */}
+      <Card style={{ background: `linear-gradient(135deg, ${C.green}10 0%, ${C.bg} 60%)`, border: `1px solid ${C.green}30` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 10, color: "#5DCAA5", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Peso actual</div>
+            <div style={{ fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 6 }}>Peso actual</div>
             {editPeso ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <input type="number" step="0.1" value={pesoTemp} onChange={e => setPesoTemp(e.target.value)} autoFocus
-                  style={{ width: 80, fontSize: 28, fontWeight: 700, background: "#0D1117", border: "1px solid #34C77B", borderRadius: 8, color: "#34C77B", padding: "4px 8px", outline: "none", fontFamily: "inherit" }}
+                  style={{ width: 90, fontSize: 32, fontWeight: 700, background: C.bg, border: `2px solid ${C.green}`, borderRadius: 10, color: C.green, padding: "6px 10px", outline: "none", fontFamily: "inherit" }}
                   onKeyDown={e => e.key === "Enter" && guardarPeso()} />
-                <button onClick={guardarPeso} style={{ padding: "6px 12px", background: "#34C77B", color: "#0D1117", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>OK</button>
+                <button onClick={guardarPeso} style={{ padding: "8px 14px", background: C.green, color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>OK</button>
               </div>
             ) : (
               <div onClick={() => { setEditPeso(true); setPesoTemp(String(data.perfil.pesoActual)); }}
-                style={{ fontSize: 48, fontWeight: 700, color: "#34C77B", letterSpacing: "-0.04em", lineHeight: 1, cursor: "pointer" }}>
-                {data.perfil.pesoActual}<span style={{ fontSize: 18, color: "#5DCAA5" }}>kg</span>
+                style={{ fontSize: 56, fontWeight: 700, color: C.text, letterSpacing: "-0.04em", lineHeight: 1, cursor: "pointer" }}>
+                {data.perfil.pesoActual}<span style={{ fontSize: 22, color: C.text2 }}>kg</span>
               </div>
             )}
-            <div style={{ fontSize: 12, color: "#5DCAA5", marginTop: 6 }}>−{pesoPerdido}kg desde el inicio · meta {data.perfil.pesoMeta}kg</div>
+            <div style={{ fontSize: 13, color: C.text2, marginTop: 6 }}>−{pesoPerdido}kg · meta {data.perfil.pesoMeta}kg</div>
           </div>
           <div style={{ position: "relative" }}>
-            <Ring pct={pesoPct} size={68} stroke={6} color="#34C77B" />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#34C77B" }}>{pesoPct}%</div>
+            <Ring pct={pesoPct} size={72} stroke={6} color={C.green} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: C.green }}>{pesoPct}%</div>
           </div>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <ProgressBar value={data.perfil.pesoInicial - data.perfil.pesoActual} max={data.perfil.pesoInicial - data.perfil.pesoMeta} color="#34C77B" height={4} />
-          <div style={{ fontSize: 10, color: "#5DCAA5", marginTop: 4, textAlign: "center" }}>Toca el peso para actualizar</div>
+        <div style={{ marginTop: 14 }}>
+          <ProgressBar value={data.perfil.pesoInicial - data.perfil.pesoActual} max={data.perfil.pesoInicial - data.perfil.pesoMeta} color={C.green} height={6} />
         </div>
       </Card>
 
+      {/* Fotos */}
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <SectionTitle>Foto de hoy</SectionTitle>
           <button onClick={() => fileRef.current?.click()}
-            style={{ padding: "6px 12px", background: "#5B8DEF", color: "#0D1117", border: "none", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "8px 14px", background: C.blue, color: "white", border: "none", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             + Subir foto
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={subirFoto} style={{ display: "none" }} />
         </div>
         {data.fotosProgreso.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 24 }}>Sube tu primera foto · trackea tu progreso visual</div>
+          <div style={{ fontSize: 13, color: C.text3, textAlign: "center", padding: 28 }}>Sube tu primera foto · trackea tu progreso visual</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
             {data.fotosProgreso.slice(0, 9).map(f => (
-              <div key={f.id} style={{ position: "relative", aspectRatio: "3/4", borderRadius: 8, overflow: "hidden", background: "#0D1117" }}>
+              <div key={f.id} style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", background: C.bg2 }}>
                 <img src={f.data} alt={f.fecha} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.8))", padding: "8px 6px 4px", fontSize: 9, color: "#F9FAFB", fontWeight: 600 }}>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.7))", padding: "10px 8px 6px", fontSize: 10, color: "white", fontWeight: 600 }}>
                   {new Date(f.fecha).toLocaleDateString("es", { day: "numeric", month: "short" })}
                 </div>
               </div>
@@ -855,72 +952,75 @@ function CuerpoTab({ data, setData }) {
         )}
       </Card>
 
+      {/* Whoop */}
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <SectionTitle>Whoop · hoy</SectionTitle>
-          {ultimoWhoop && <Badge label={`recovery ${ultimoWhoop.recovery}%`} color={ultimoWhoop.recovery > 67 ? "#34C77B" : ultimoWhoop.recovery > 33 ? "#F5A623" : "#FF6B6B"} />}
+          {ultimoWhoop && <Badge label={`recovery ${ultimoWhoop.recovery}%`} color={ultimoWhoop.recovery > 67 ? C.green : ultimoWhoop.recovery > 33 ? C.orange : C.red} />}
         </div>
         {ultimoWhoop && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
             {[
-              { l: "Recovery", v: `${ultimoWhoop.recovery}%`, c: "#34C77B" },
-              { l: "Sueño", v: `${ultimoWhoop.sueno}h`, c: "#5B8DEF" },
-              { l: "Strain", v: ultimoWhoop.strain.toFixed(1), c: "#F5A623" },
-              { l: "HRV", v: ultimoWhoop.hrv, c: "#A78BFA" },
+              { l: "Recovery", v: `${ultimoWhoop.recovery}%`, c: C.green },
+              { l: "Sueño", v: `${ultimoWhoop.sueno}h`, c: C.blue },
+              { l: "Strain", v: ultimoWhoop.strain.toFixed(1), c: C.orange },
+              { l: "HRV", v: ultimoWhoop.hrv, c: C.purple },
             ].map((m, i) => (
-              <div key={i} style={{ background: "#0D1117", borderRadius: 8, padding: 8, textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: m.c }}>{m.v}</div>
-                <div style={{ fontSize: 9, color: "#4B5563", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.l}</div>
+              <div key={i} style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: m.c, letterSpacing: "-0.02em" }}>{m.v}</div>
+                <div style={{ fontSize: 10, color: C.text2, marginTop: 2, fontWeight: 600 }}>{m.l}</div>
               </div>
             ))}
           </div>
         )}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
           <input type="number" placeholder="Recovery %" value={whoopForm.recovery} onChange={e => setWhoopForm(f => ({ ...f, recovery: e.target.value }))}
-            style={{ padding: 8, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 8, color: "#F9FAFB", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+            style={{ padding: 10, background: C.bg2, border: "none", borderRadius: 10, color: C.text, fontSize: 13, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
           <input type="number" step="0.1" placeholder="Sueño h" value={whoopForm.sueno} onChange={e => setWhoopForm(f => ({ ...f, sueno: e.target.value }))}
-            style={{ padding: 8, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 8, color: "#F9FAFB", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+            style={{ padding: 10, background: C.bg2, border: "none", borderRadius: 10, color: C.text, fontSize: 13, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
           <input type="number" step="0.1" placeholder="Strain" value={whoopForm.strain} onChange={e => setWhoopForm(f => ({ ...f, strain: e.target.value }))}
-            style={{ padding: 8, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 8, color: "#F9FAFB", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+            style={{ padding: 10, background: C.bg2, border: "none", borderRadius: 10, color: C.text, fontSize: 13, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
           <input type="number" placeholder="HRV" value={whoopForm.hrv} onChange={e => setWhoopForm(f => ({ ...f, hrv: e.target.value }))}
-            style={{ padding: 8, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 8, color: "#F9FAFB", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+            style={{ padding: 10, background: C.bg2, border: "none", borderRadius: 10, color: C.text, fontSize: 13, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
         </div>
-        <button onClick={addWhoop} style={{ width: "100%", padding: 8, background: "#5B8DEF", color: "#0D1117", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={addWhoop} style={{ width: "100%", padding: 11, background: C.blue, color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           Guardar Whoop de hoy
         </button>
       </Card>
 
+      {/* Notas Zulma */}
       <Card>
         <SectionTitle>Notas para Zulma</SectionTitle>
-        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
           <input value={nuevaNota} onChange={e => setNuevaNota(e.target.value)} placeholder="Nueva pregunta..."
             onKeyDown={e => e.key === "Enter" && addNota()}
-            style={{ flex: 1, padding: 9, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 8, color: "#F9FAFB", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
-          <button onClick={addNota} style={{ padding: "8px 14px", background: "#34C77B", color: "#0D1117", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
+            style={{ flex: 1, padding: 11, background: C.bg2, border: "none", borderRadius: 10, color: C.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+          <button onClick={addNota} style={{ padding: "10px 16px", background: C.green, color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
         </div>
         {data.notasZulma.map((n, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #1E2A3A" }}>
-            <div style={{ width: 5, height: 5, borderRadius: 99, background: "#34C77B", flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: 12, color: "#D1D5DB" }}>{n}</span>
-            <button onClick={() => delNota(i)} style={{ background: "none", border: "none", color: "#4B5563", fontSize: 14, cursor: "pointer" }}>×</button>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < data.notasZulma.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div style={{ width: 6, height: 6, borderRadius: 99, background: C.green, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, color: C.text }}>{n}</span>
+            <button onClick={() => delNota(i)} style={{ background: "none", border: "none", color: C.text3, fontSize: 16, cursor: "pointer" }}>×</button>
           </div>
         ))}
       </Card>
 
+      {/* Compras */}
       <Card>
         <SectionTitle>Compras semanales</SectionTitle>
-        {data.compras.map(c => (
+        {data.compras.map((c, idx) => (
           <div key={c.id} onClick={() => setData(prev => ({ ...prev, compras: prev.compras.map(x => x.id === c.id ? { ...x, comprado: !x.comprado } : x) }))}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #1E2A3A", cursor: "pointer", opacity: c.comprado ? 0.5 : 1 }}>
-            <div style={{ width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-              background: c.comprado ? "#34C77B" : "#1E2A3A",
-              border: c.comprado ? "none" : "1px solid #374151",
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: idx < data.compras.length - 1 ? `1px solid ${C.border}` : "none", cursor: "pointer" }}>
+            <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+              background: c.comprado ? C.green : C.bg,
+              border: c.comprado ? "none" : `1.5px solid ${C.border2}`,
               display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {c.comprado && <span style={{ fontSize: 9, color: "#0D1117" }}>✓</span>}
+              {c.comprado && <span style={{ fontSize: 11, color: "white", fontWeight: 700 }}>✓</span>}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: c.comprado ? "#6B7280" : "#F9FAFB", textDecoration: c.comprado ? "line-through" : "none" }}>{c.item}</div>
-              <div style={{ fontSize: 10, color: "#4B5563" }}>{c.categoria}</div>
+              <div style={{ fontSize: 13, color: c.comprado ? C.text3 : C.text, textDecoration: c.comprado ? "line-through" : "none", fontWeight: 500 }}>{c.item}</div>
+              <div style={{ fontSize: 11, color: C.text3 }}>{c.categoria}</div>
             </div>
           </div>
         ))}
@@ -940,18 +1040,17 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Si cambió el día, resetear hoy
         const today = hoy();
         if (parsed.habitos?.fechaHoy !== today) {
           parsed.habitos = { ...parsed.habitos, hoy: {}, fechaHoy: today };
+          // Reset comidas: las fijas y las que tengan plan vuelven al plan
           parsed.comidas = {
             ...parsed.comidas,
-            plan: parsed.comidas.plan.map(p => ({ ...p, completado: false })),
+            plan: parsed.comidas.plan.map(p => p.fijo ? { ...p, completado: false } : (p.plan ? { ...p, ...p.plan, completado: false } : { ...p, completado: false })),
             agua: 0,
             suplementos: parsed.comidas.suplementos.map(s => ({ ...s, completado: false })),
           };
         }
-        // Reset de escudos cada mes
         if (parsed.reto?.mesActualEscudos !== mesActual()) {
           parsed.reto = { ...parsed.reto, escudosUsados: 0, mesActualEscudos: mesActual() };
         }
@@ -970,45 +1069,50 @@ export default function App() {
   }, []);
 
   if (!loaded) return (
-    <div style={{ minHeight: "100vh", background: "#0D1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 13, color: "#374151", letterSpacing: "0.1em" }}>Cargando…</div>
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontSize: 14, color: C.text3 }}>Cargando…</div>
     </div>
   );
 
-  const screens = { home: HomeTab, reto: RetoTab, habitos: HabitosTab, dinero: DineroTab, comida: ComidaTab, cuerpo: CuerpoTab };
+  const screens = { home: HomeTab, reto: RetoTab, dinero: DineroTab, comida: ComidaTab, cuerpo: CuerpoTab };
   const Screen = screens[tab];
 
   return (
-    <div style={{ background: "#0D1117", minHeight: "100vh", maxWidth: 430, margin: "0 auto",
-      fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+    <div style={{ background: C.bg3, minHeight: "100vh", maxWidth: 430, margin: "0 auto",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif", color: C.text }}>
       <style>{`
         @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        input, button { font-family: inherit; }
+        input, button, textarea { font-family: inherit; }
         ::-webkit-scrollbar { display: none; }
-        body { margin: 0; }
+        body { margin: 0; background: ${C.bg3}; }
       `}</style>
 
-      <div style={{ padding: "20px 16px 100px" }}>
+      <div style={{ padding: "20px 16px 110px" }}>
         <Screen data={data} setData={setData} />
       </div>
 
+      {/* Bottom nav — más grande */}
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-        width: "100%", maxWidth: 430, background: "#0D1117", borderTop: "1px solid #1E2A3A",
-        display: "flex", zIndex: 100 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ flex: 1, padding: "10px 0 18px", background: "none", border: "none", cursor: "pointer",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              opacity: tab === t.id ? 1 : 0.35, transition: "opacity 0.15s" }}>
-            <span style={{ fontSize: 14, color: tab === t.id ? "#F5A623" : "#6B7280" }}>{t.icon}</span>
-            <span style={{ fontSize: 8, fontWeight: tab === t.id ? 700 : 400,
-              color: tab === t.id ? "#F5A623" : "#6B7280", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              {t.label}
-            </span>
-          </button>
-        ))}
+        width: "100%", maxWidth: 430, background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100,
+        paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        {TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ flex: 1, padding: "10px 0 6px", background: "none", border: "none", cursor: "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                transition: "all 0.15s" }}>
+              {t.icon(active)}
+              <span style={{ fontSize: 11, fontWeight: active ? 700 : 500,
+                color: active ? t.color : C.text3, letterSpacing: "-0.01em" }}>
+                {t.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
