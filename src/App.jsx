@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const STORAGE_KEY = "edu_dashboard_v3";
+const STORAGE_KEY = "edu_dashboard_v4";
 
 const DEFAULT_DATA = {
   perfil: {
@@ -8,11 +8,15 @@ const DEFAULT_DATA = {
     pesoActual: 75,
     pesoMeta: 70,
     pesoInicial: 76,
-    historialPeso: [
-      { fecha: "2026-04-01", peso: 76 },
-      { fecha: "2026-04-15", peso: 75.5 },
-      { fecha: "2026-05-01", peso: 75 },
-    ],
+  },
+  reto: {
+    nombre: "100 Días Hard",
+    fechaInicio: null,
+    diaActual: 0,
+    diasCompletados: [],
+    escudosUsados: 0,
+    escudosMes: 2,
+    mesActualEscudos: new Date().toISOString().slice(0, 7),
   },
   finanzas: {
     ingreso: 6000,
@@ -53,7 +57,8 @@ const DEFAULT_DATA = {
   },
   habitos: {
     reglas: [
-      { nombre: "Sueño 8hrs", tipo: "horas" },
+      { nombre: "Despertar 7am", tipo: "check" },
+      { nombre: "Sueño 7+ hrs", tipo: "horas" },
       { nombre: "Journaling", tipo: "check" },
       { nombre: "Sin alcohol", tipo: "check" },
       { nombre: "Lectura", tipo: "check" },
@@ -62,30 +67,12 @@ const DEFAULT_DATA = {
       { nombre: "No cel 10:30pm", tipo: "check" },
       { nombre: "No fap", tipo: "check" },
     ],
-    semana: [
-      [7.5, 8, 7, 8, 7.5, null, null],
-      [true, true, false, true, true, null, false],
-      [true, true, true, true, false, null, false],
-      [true, false, true, true, true, null, false],
-      [true, true, true, true, true, null, false],
-      [false, true, false, true, false, null, false],
-      [true, true, true, false, true, null, false],
-      [true, true, true, true, true, null, false],
-    ],
-    metaSueno: 8,
+    hoy: {},
+    fechaHoy: new Date().toISOString().slice(0, 10),
   },
-  urgentes: [
-    { id: 1, titulo: "MGT 610 — Reflection Week 6", fecha: "May 7" },
-    { id: 2, titulo: "Sprint review paid media", fecha: "May 8" },
-  ],
+  urgentes: [],
   fotosProgreso: [],
-  whoop: {
-    historial: [
-      { fecha: "2026-05-01", recovery: 65, sueno: 7.5, strain: 14.2, hrv: 48 },
-      { fecha: "2026-05-02", recovery: 72, sueno: 8.1, strain: 12.5, hrv: 52 },
-      { fecha: "2026-05-03", recovery: 58, sueno: 6.8, strain: 16.1, hrv: 45 },
-    ],
-  },
+  whoop: { historial: [] },
   notasZulma: ["Preguntar sobre grasa baja (29g) en plan v2"],
   compras: [
     { id: 1, item: "Pollo pechuga 2.5 lb", categoria: "Proteína", comprado: false },
@@ -101,6 +88,8 @@ const DEFAULT_DATA = {
 };
 
 function uid() { return Date.now() + Math.random(); }
+function hoy() { return new Date().toISOString().slice(0, 10); }
+function mesActual() { return new Date().toISOString().slice(0, 7); }
 
 function ProgressBar({ value, max, color = "#5B8DEF", height = 4 }) {
   const pct = Math.min(100, Math.round((value / max) * 100));
@@ -151,32 +140,21 @@ function SectionTitle({ children }) {
 }
 
 const TABS = [
-  { id: "home",     label: "Hoy",     icon: "◈" },
-  { id: "dinero",   label: "Dinero",  icon: "◎" },
-  { id: "habitos",  label: "Hábitos", icon: "◇" },
-  { id: "comida",   label: "Comida",  icon: "△" },
-  { id: "cuerpo",   label: "Cuerpo",  icon: "○" },
+  { id: "home",     label: "Hoy",      icon: "◈" },
+  { id: "reto",     label: "100 Días", icon: "◉" },
+  { id: "habitos",  label: "Hábitos",  icon: "◇" },
+  { id: "dinero",   label: "Dinero",   icon: "◎" },
+  { id: "comida",   label: "Comida",   icon: "△" },
+  { id: "cuerpo",   label: "Cuerpo",   icon: "○" },
 ];
 
+// ─── HOME ──────────────────────────────────────────────
 function HomeTab({ data, setData }) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const gastosHoy = data.finanzas.transacciones.filter(t => t.fecha === hoy).reduce((s, t) => s + t.monto, 0);
-
-  const streak = (() => {
-    let count = 0;
-    for (let d = 4; d >= 0; d--) {
-      const allDone = data.habitos.reglas.every((h, ri) => {
-        const val = data.habitos.semana[ri][d];
-        return h.tipo === "horas" ? (val !== null && val >= 7) : val === true;
-      });
-      if (allDone) count++; else break;
-    }
-    return count;
-  })();
+  const gastosHoy = data.finanzas.transacciones.filter(t => t.fecha === hoy()).reduce((s, t) => s + t.monto, 0);
 
   const habitsHoy = data.habitos.reglas.filter((h, i) => {
-    const v = data.habitos.semana[i][5];
-    return h.tipo === "horas" ? (v !== null && v >= 7) : v === true;
+    const v = data.habitos.hoy[i];
+    return h.tipo === "horas" ? (v !== undefined && v >= 7) : v === true;
   }).length;
   const totalHabits = data.habitos.reglas.length;
 
@@ -185,26 +163,24 @@ function HomeTab({ data, setData }) {
 
   const toggleHabito = (i) => {
     setData(prev => {
-      const sem = prev.habitos.semana.map((r, ri) =>
-        ri === i ? r.map((v, di) => di === 5 ? (prev.habitos.reglas[ri].tipo === "horas" ? (v === null ? 8 : null) : (v === true ? null : true)) : v) : r
-      );
-      return { ...prev, habitos: { ...prev.habitos, semana: sem } };
+      const habito = prev.habitos.reglas[i];
+      const v = prev.habitos.hoy[i];
+      const newVal = habito.tipo === "horas"
+        ? (v === undefined ? 8 : undefined)
+        : (v === true ? false : true);
+      const nuevoHoy = { ...prev.habitos.hoy };
+      if (newVal === undefined || newVal === false) delete nuevoHoy[i];
+      else nuevoHoy[i] = newVal;
+      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
     });
   };
 
-  const editarUrgente = (id, nuevo) => {
-    setData(prev => ({ ...prev, urgentes: prev.urgentes.map(u => u.id === id ? { ...u, titulo: nuevo } : u) }));
-  };
-
-  const addUrgente = () => {
-    setData(prev => ({ ...prev, urgentes: [...prev.urgentes, { id: uid(), titulo: "Nuevo deadline", fecha: "—" }] }));
-  };
-
-  const delUrgente = (id) => {
-    setData(prev => ({ ...prev, urgentes: prev.urgentes.filter(u => u.id !== id) }));
-  };
+  const editarUrgente = (id, nuevo) => setData(prev => ({ ...prev, urgentes: prev.urgentes.map(u => u.id === id ? { ...u, titulo: nuevo } : u) }));
+  const addUrgente = () => setData(prev => ({ ...prev, urgentes: [...prev.urgentes, { id: uid(), titulo: "Nuevo deadline", fecha: "—" }] }));
+  const delUrgente = (id) => setData(prev => ({ ...prev, urgentes: prev.urgentes.filter(u => u.id !== id) }));
 
   const fechaHoy = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+  const diaReto = data.reto.diaActual;
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
@@ -215,14 +191,22 @@ function HomeTab({ data, setData }) {
         <div style={{ fontSize: 12, color: "#6B7280", marginTop: 3, textTransform: "capitalize" }}>{fechaHoy} · FiDi</div>
       </div>
 
+      {/* Reto hero */}
       <Card style={{ background: "linear-gradient(135deg, #2D1F0A 0%, #111827 100%)", border: "1px solid #4A3315", padding: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 10, color: "#D88E1A", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Racha actual</div>
-            <div style={{ fontSize: 56, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.04em", lineHeight: 0.95 }}>{streak}</div>
-            <div style={{ fontSize: 12, color: "#D88E1A", marginTop: 6 }}>días perfectos seguidos</div>
+            <div style={{ fontSize: 10, color: "#D88E1A", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{data.reto.nombre}</div>
+            <div style={{ fontSize: 56, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.04em", lineHeight: 0.95 }}>
+              {diaReto}<span style={{ fontSize: 22, color: "#D88E1A" }}> / 100</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#D88E1A", marginTop: 6 }}>
+              {diaReto === 0 ? "completa todo hoy para empezar 🔥" : `${100 - diaReto} días para terminar`}
+            </div>
           </div>
           <div style={{ fontSize: 56, lineHeight: 1 }}>🔥</div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <ProgressBar value={diaReto} max={100} color="#F5A623" height={5} />
         </div>
       </Card>
 
@@ -255,19 +239,19 @@ function HomeTab({ data, setData }) {
           <Badge label="Toca para marcar" color="#A78BFA" />
         </div>
         {data.habitos.reglas.map((h, i) => {
-          const val = data.habitos.semana[i]?.[5];
-          const done = h.tipo === "horas" ? (val !== null && val >= 7) : val === true;
+          const val = data.habitos.hoy[i];
+          const done = h.tipo === "horas" ? (val !== undefined && val >= 7) : val === true;
           return (
             <div key={i} onClick={() => toggleHabito(i)}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 0", borderBottom: "1px solid #1E2A3A", cursor: "pointer", opacity: done ? 1 : 0.6 }}>
               <span style={{ fontSize: 14, color: done ? "#F9FAFB" : "#9CA3AF", fontWeight: done ? 500 : 400 }}>
                 {h.nombre}
-                {h.tipo === "horas" && val !== null && <span style={{ color: "#5B8DEF", marginLeft: 6, fontSize: 12 }}>{val}hrs</span>}
+                {h.tipo === "horas" && val !== undefined && <span style={{ color: "#5B8DEF", marginLeft: 6, fontSize: 12 }}>{val}hrs</span>}
               </span>
               <div style={{ width: 22, height: 22, borderRadius: 7,
                 background: done ? "#34C77B" : "#1E2A3A",
-                border: val === null ? "1.5px dashed #374151" : done ? "none" : "1px solid #374151",
+                border: done ? "none" : "1px solid #374151",
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {done && <span style={{ fontSize: 12, color: "#0D1117" }}>✓</span>}
               </div>
@@ -279,8 +263,7 @@ function HomeTab({ data, setData }) {
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionTitle>Urgente</SectionTitle>
-          <button onClick={addUrgente} style={{ background: "none", border: "1px solid #1E2A3A", color: "#5B8DEF",
-            padding: "3px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>+ añadir</button>
+          <button onClick={addUrgente} style={{ background: "none", border: "1px solid #1E2A3A", color: "#5B8DEF", padding: "3px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>+ añadir</button>
         </div>
         {data.urgentes.length === 0 ? (
           <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 12 }}>Nada urgente · sigue así 🤙</div>
@@ -298,6 +281,242 @@ function HomeTab({ data, setData }) {
   );
 }
 
+// ─── 100 DÍAS ─────────────────────────────────────────
+function RetoTab({ data, setData }) {
+  const habitsHoy = data.habitos.reglas.filter((h, i) => {
+    const v = data.habitos.hoy[i];
+    return h.tipo === "horas" ? (v !== undefined && v >= 7) : v === true;
+  }).length;
+  const totalHabits = data.habitos.reglas.length;
+  const allDone = habitsHoy === totalHabits;
+  const yaContado = data.reto.diasCompletados.includes(hoy());
+
+  const completarDia = () => {
+    if (!allDone || yaContado) return;
+    setData(prev => ({
+      ...prev,
+      reto: {
+        ...prev.reto,
+        diaActual: prev.reto.diaActual + 1,
+        diasCompletados: [...prev.reto.diasCompletados, hoy()],
+        fechaInicio: prev.reto.fechaInicio || hoy(),
+      }
+    }));
+  };
+
+  const usarEscudo = () => {
+    if (data.reto.escudosUsados >= data.reto.escudosMes) return;
+    setData(prev => ({
+      ...prev,
+      reto: {
+        ...prev.reto,
+        diaActual: prev.reto.diaActual + 1,
+        diasCompletados: [...prev.reto.diasCompletados, hoy() + "_shield"],
+        escudosUsados: prev.reto.escudosUsados + 1,
+        fechaInicio: prev.reto.fechaInicio || hoy(),
+      }
+    }));
+  };
+
+  const reiniciarReto = () => {
+    if (!confirm("¿Seguro? Se reinicia a Día 0.")) return;
+    setData(prev => ({
+      ...prev,
+      reto: { ...prev.reto, diaActual: 0, diasCompletados: [], fechaInicio: null, escudosUsados: 0 }
+    }));
+  };
+
+  const escudosDisponibles = data.reto.escudosMes - data.reto.escudosUsados;
+
+  return (
+    <div style={{ animation: "fadeUp 0.35s ease both" }}>
+      <Card style={{ background: "linear-gradient(135deg, #2D1F0A 0%, #111827 100%)", border: "1px solid #4A3315", padding: 22, textAlign: "center" }}>
+        <div style={{ fontSize: 11, color: "#D88E1A", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>{data.reto.nombre}</div>
+        <div style={{ fontSize: 90, fontWeight: 700, color: "#F5A623", letterSpacing: "-0.05em", lineHeight: 0.9, fontFamily: "'DM Serif Display', Georgia, serif" }}>
+          {data.reto.diaActual}
+        </div>
+        <div style={{ fontSize: 14, color: "#D88E1A", marginTop: 4, fontWeight: 600 }}>de 100 días</div>
+        <div style={{ marginTop: 16 }}>
+          <ProgressBar value={data.reto.diaActual} max={100} color="#F5A623" height={6} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+          <span style={{ fontSize: 11, color: "#D88E1A" }}>{data.reto.diaActual}%</span>
+          <span style={{ fontSize: 11, color: "#D88E1A" }}>{100 - data.reto.diaActual} días restantes</span>
+        </div>
+      </Card>
+
+      {/* Estado de hoy */}
+      <Card>
+        <SectionTitle>Estado de hoy</SectionTitle>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: allDone ? "#34C77B" : "#F5A623", letterSpacing: "-0.04em" }}>
+              {habitsHoy}<span style={{ fontSize: 16, color: "#6B7280" }}>/{totalHabits}</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#6B7280" }}>hábitos completados hoy</div>
+          </div>
+          {yaContado ? (
+            <Badge label="✓ Día contado" color="#34C77B" />
+          ) : allDone ? (
+            <button onClick={completarDia}
+              style={{ padding: "10px 18px", background: "#34C77B", color: "#0D1117", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              ✓ Completar día {data.reto.diaActual + 1}
+            </button>
+          ) : (
+            <Badge label={`faltan ${totalHabits - habitsHoy}`} color="#F5A623" />
+          )}
+        </div>
+        <ProgressBar value={habitsHoy} max={totalHabits} color={allDone ? "#34C77B" : "#F5A623"} height={4} />
+      </Card>
+
+      {/* Escudos */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionTitle>Escudos del mes</SectionTitle>
+          <span style={{ fontSize: 18, color: "#5B8DEF" }}>
+            {Array.from({ length: data.reto.escudosMes }).map((_, i) => (
+              <span key={i} style={{ marginLeft: 4, opacity: i < escudosDisponibles ? 1 : 0.25 }}>🛡️</span>
+            ))}
+          </span>
+        </div>
+        <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12, lineHeight: 1.5 }}>
+          Si tienes un día imposible (viaje, enfermedad, evento), usa un escudo para que el día cuente sin tener que completar todos los hábitos. Tienes {escudosDisponibles} disponibles este mes.
+        </div>
+        {!yaContado && escudosDisponibles > 0 && (
+          <button onClick={usarEscudo}
+            style={{ width: "100%", padding: 10, background: "#1E2A3A", color: "#5B8DEF", border: "1px solid #1E3A5F", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            🛡️ Usar escudo y contar día
+          </button>
+        )}
+      </Card>
+
+      {/* Calendario 100 días */}
+      <Card>
+        <SectionTitle>Mapa de 100 días</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+          {Array.from({ length: 100 }).map((_, i) => {
+            const dia = i + 1;
+            const completado = dia <= data.reto.diaActual;
+            const esHoy = dia === data.reto.diaActual + 1;
+            return (
+              <div key={i} style={{
+                aspectRatio: 1,
+                borderRadius: 4,
+                background: completado ? "#34C77B" : esHoy ? "transparent" : "#1E2A3A",
+                border: esHoy ? "1.5px dashed #F5A623" : "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 8,
+                color: completado ? "#0D1117" : esHoy ? "#F5A623" : "#374151",
+                fontWeight: 700
+              }}>
+                {dia}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 12, fontSize: 10, color: "#6B7280" }}>
+          <span><span style={{ display: "inline-block", width: 8, height: 8, background: "#34C77B", borderRadius: 2, marginRight: 4 }} /> Completado</span>
+          <span><span style={{ display: "inline-block", width: 8, height: 8, border: "1px dashed #F5A623", borderRadius: 2, marginRight: 4 }} /> Hoy</span>
+          <span><span style={{ display: "inline-block", width: 8, height: 8, background: "#1E2A3A", borderRadius: 2, marginRight: 4 }} /> Pendiente</span>
+        </div>
+      </Card>
+
+      {/* Reset */}
+      <Card>
+        <SectionTitle>Zona peligrosa</SectionTitle>
+        <button onClick={reiniciarReto}
+          style={{ width: "100%", padding: 10, background: "transparent", color: "#FF6B6B", border: "1px solid #4A1818", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Reiniciar reto a día 0
+        </button>
+      </Card>
+    </div>
+  );
+}
+
+// ─── HÁBITOS (simple, solo de hoy) ─────────────────────
+function HabitosTab({ data, setData }) {
+  const toggleHabito = (i) => {
+    setData(prev => {
+      const habito = prev.habitos.reglas[i];
+      const v = prev.habitos.hoy[i];
+      const newVal = habito.tipo === "horas"
+        ? (v === undefined ? 8 : undefined)
+        : (v === true ? false : true);
+      const nuevoHoy = { ...prev.habitos.hoy };
+      if (newVal === undefined || newVal === false) delete nuevoHoy[i];
+      else nuevoHoy[i] = newVal;
+      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
+    });
+  };
+
+  const cambiarHoras = (i, val) => {
+    const num = parseFloat(val);
+    setData(prev => {
+      const nuevoHoy = { ...prev.habitos.hoy };
+      if (isNaN(num)) delete nuevoHoy[i];
+      else nuevoHoy[i] = num;
+      return { ...prev, habitos: { ...prev.habitos, hoy: nuevoHoy } };
+    });
+  };
+
+  const completados = data.habitos.reglas.filter((h, i) => {
+    const v = data.habitos.hoy[i];
+    return h.tipo === "horas" ? (v !== undefined && v >= 7) : v === true;
+  }).length;
+  const total = data.habitos.reglas.length;
+
+  return (
+    <div style={{ animation: "fadeUp 0.35s ease both" }}>
+      <Card style={{ textAlign: "center", padding: 22 }}>
+        <div style={{ fontSize: 11, color: "#7C5CBF", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Progreso de hoy</div>
+        <div style={{ fontSize: 64, fontWeight: 700, color: completados === total ? "#34C77B" : "#A78BFA", letterSpacing: "-0.04em", lineHeight: 1, fontFamily: "'DM Serif Display', Georgia, serif" }}>
+          {completados}<span style={{ fontSize: 24, color: "#4B5563" }}>/{total}</span>
+        </div>
+        <div style={{ fontSize: 12, color: "#7C5CBF", marginTop: 6 }}>
+          {completados === total ? "🔥 Día perfecto · cuéntalo en el reto" : `faltan ${total - completados} para día perfecto`}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <ProgressBar value={completados} max={total} color={completados === total ? "#34C77B" : "#A78BFA"} height={5} />
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle>Tus 9 hábitos · toca para marcar</SectionTitle>
+        {data.habitos.reglas.map((h, i) => {
+          const val = data.habitos.hoy[i];
+          const done = h.tipo === "horas" ? (val !== undefined && val >= 7) : val === true;
+          return (
+            <div key={i}
+              style={{ padding: "12px 0", borderBottom: "1px solid #1E2A3A" }}>
+              <div onClick={() => toggleHabito(i)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", opacity: done ? 1 : 0.7 }}>
+                <span style={{ fontSize: 15, color: done ? "#F9FAFB" : "#9CA3AF", fontWeight: done ? 500 : 400 }}>{h.nombre}</span>
+                <div style={{ width: 26, height: 26, borderRadius: 8,
+                  background: done ? "#34C77B" : "#1E2A3A",
+                  border: done ? "none" : "1px solid #374151",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {done && <span style={{ fontSize: 14, color: "#0D1117" }}>✓</span>}
+                </div>
+              </div>
+              {h.tipo === "horas" && val !== undefined && (
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: "#6B7280" }}>Horas:</span>
+                  <input type="number" step="0.5" value={val} onChange={e => cambiarHoras(i, e.target.value)}
+                    style={{ width: 60, padding: "4px 8px", fontSize: 13, background: "#0D1117", border: "1px solid #1E3A5F", borderRadius: 6, color: "#5B8DEF", outline: "none", fontFamily: "inherit" }} />
+                  <span style={{ fontSize: 11, color: val >= 7 ? "#34C77B" : "#FF6B6B" }}>{val >= 7 ? "✓ cuenta" : "no cuenta"}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </Card>
+    </div>
+  );
+}
+
+// ─── DINERO ─────────────────────────────────────────────
 function DineroTab({ data, setData }) {
   const [showForm, setShowForm] = useState(false);
   const [nuevoMonto, setNuevoMonto] = useState("");
@@ -311,8 +530,7 @@ function DineroTab({ data, setData }) {
   const pctVar = Math.round((gastoVariable / data.finanzas.presupuesto) * 100);
 
   const porCategoria = data.finanzas.categorias.map(c => ({
-    ...c,
-    total: data.finanzas.transacciones.filter(t => t.categoria === c.id).reduce((s, t) => s + t.monto, 0)
+    ...c, total: data.finanzas.transacciones.filter(t => t.categoria === c.id).reduce((s, t) => s + t.monto, 0)
   }));
 
   const addTransaccion = () => {
@@ -323,20 +541,18 @@ function DineroTab({ data, setData }) {
       ...prev,
       finanzas: {
         ...prev.finanzas,
-        transacciones: [{ id: uid(), fecha: new Date().toISOString().slice(0, 10), monto, categoria: nuevaCat, nota: nuevaNota, color: cat?.color }, ...prev.finanzas.transacciones]
+        transacciones: [{ id: uid(), fecha: hoy(), monto, categoria: nuevaCat, nota: nuevaNota, color: cat?.color }, ...prev.finanzas.transacciones]
       }
     }));
     setNuevoMonto(""); setNuevaNota(""); setShowForm(false);
   };
 
-  const delTrans = (id) => {
-    setData(prev => ({ ...prev, finanzas: { ...prev.finanzas, transacciones: prev.finanzas.transacciones.filter(t => t.id !== id) } }));
-  };
+  const delTrans = (id) => setData(prev => ({ ...prev, finanzas: { ...prev.finanzas, transacciones: prev.finanzas.transacciones.filter(t => t.id !== id) } }));
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
       <Card>
-        <SectionTitle>Mayo 2026</SectionTitle>
+        <SectionTitle>Mes actual</SectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
           {[
             { l: "Ingreso", v: `$${data.finanzas.ingreso.toLocaleString()}`, c: "#34C77B" },
@@ -360,16 +576,14 @@ function DineroTab({ data, setData }) {
 
       {!showForm ? (
         <button onClick={() => setShowForm(true)}
-          style={{ width: "100%", padding: 14, background: "#5B8DEF", color: "#0D1117", border: "none",
-            borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12, fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: 14, background: "#5B8DEF", color: "#0D1117", border: "none", borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12, fontFamily: "inherit" }}>
           + Añadir gasto
         </button>
       ) : (
         <Card>
           <SectionTitle>Nuevo gasto</SectionTitle>
           <input type="number" inputMode="decimal" value={nuevoMonto} onChange={e => setNuevoMonto(e.target.value)} placeholder="$ Monto"
-            style={{ width: "100%", padding: 11, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 10, color: "#F9FAFB", fontSize: 16, marginBottom: 10, outline: "none", fontFamily: "inherit" }}
-            autoFocus />
+            style={{ width: "100%", padding: 11, background: "#0D1117", border: "1px solid #1E2A3A", borderRadius: 10, color: "#F9FAFB", fontSize: 16, marginBottom: 10, outline: "none", fontFamily: "inherit" }} autoFocus />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10 }}>
             {data.finanzas.categorias.map(c => (
               <button key={c.id} onClick={() => setNuevaCat(c.id)}
@@ -377,9 +591,7 @@ function DineroTab({ data, setData }) {
                   background: nuevaCat === c.id ? c.color + "33" : "#0D1117",
                   color: nuevaCat === c.id ? c.color : "#6B7280",
                   border: `1px solid ${nuevaCat === c.id ? c.color + "66" : "#1E2A3A"}`,
-                  borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>
-                {c.nombre}
-              </button>
+                  borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>{c.nombre}</button>
             ))}
           </div>
           <input value={nuevaNota} onChange={e => setNuevaNota(e.target.value)} placeholder="Nota (opcional)"
@@ -410,8 +622,8 @@ function DineroTab({ data, setData }) {
       <Card>
         <SectionTitle>Historial</SectionTitle>
         {data.finanzas.transacciones.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 20 }}>Sin gastos aún · añade el primero arriba</div>
-        ) : data.finanzas.transacciones.slice(0, 10).map(t => {
+          <div style={{ fontSize: 12, color: "#4B5563", textAlign: "center", padding: 20 }}>Sin gastos aún</div>
+        ) : data.finanzas.transacciones.slice(0, 15).map(t => {
           const cat = data.finanzas.categorias.find(c => c.id === t.categoria);
           return (
             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #1E2A3A" }}>
@@ -430,134 +642,16 @@ function DineroTab({ data, setData }) {
   );
 }
 
-function HabitosTab({ data, setData }) {
-  const DAYS = ["L", "M", "X", "J", "V", "H", "D"];
-
-  const totales = data.habitos.reglas.map((h, ri) =>
-    data.habitos.semana[ri].filter(v => h.tipo === "horas" ? (v !== null && v >= 7) : v === true).length
-  );
-
-  const streak = (() => {
-    let count = 0;
-    for (let d = 4; d >= 0; d--) {
-      const allDone = data.habitos.reglas.every((h, ri) => {
-        const val = data.habitos.semana[ri][d];
-        return h.tipo === "horas" ? (val !== null && val >= 7) : val === true;
-      });
-      if (allDone) count++; else break;
-    }
-    return count;
-  })();
-
-  const toggleHabito = (ri, di) => {
-    setData(prev => {
-      const habito = prev.habitos.reglas[ri];
-      const sem = prev.habitos.semana.map((r, rIdx) =>
-        rIdx === ri ? r.map((v, dIdx) => {
-          if (dIdx !== di) return v;
-          if (habito.tipo === "horas") return v === null ? 8 : v >= 7 ? null : 8;
-          return v === true ? false : true;
-        }) : r
-      );
-      return { ...prev, habitos: { ...prev.habitos, semana: sem } };
-    });
-  };
-
-  return (
-    <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      <Card style={{ background: "linear-gradient(135deg, #1A0E2E 0%, #111827 100%)", border: "1px solid #2D1F4A" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 10, color: "#7C5CBF", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Racha</div>
-            <div style={{ fontSize: 52, fontWeight: 700, color: "#A78BFA", letterSpacing: "-0.04em", lineHeight: 1 }}>{streak}</div>
-            <div style={{ fontSize: 12, color: "#7C5CBF", marginTop: 4 }}>días perfectos seguidos</div>
-          </div>
-          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Ring pct={(streak / 7) * 100} size={72} stroke={6} color="#A78BFA" />
-            <div style={{ position: "absolute", fontSize: 18 }}>🔥</div>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle>Sueño esta semana</SectionTitle>
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-          {data.habitos.semana[0].map((v, di) => {
-            const color = v === null ? "#1E2A3A" : v >= 8 ? "#34C77B" : v >= 7 ? "#F5A623" : "#FF6B6B";
-            return (
-              <div key={di} style={{ flex: 1, textAlign: "center" }}>
-                <div style={{ fontSize: 9, color: "#4B5563", marginBottom: 3, fontWeight: 700 }}>{DAYS[di]}</div>
-                <div onClick={() => toggleHabito(0, di)}
-                  style={{ background: color + "22", border: `1px solid ${color}`, borderRadius: 8, padding: "8px 0",
-                    fontSize: 12, fontWeight: 700, color, cursor: "pointer" }}>
-                  {v !== null ? `${v}h` : "—"}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ fontSize: 11, color: "#6B7280", textAlign: "center" }}>Toca para alternar · meta 8hrs</div>
-      </Card>
-
-      <Card>
-        <SectionTitle>Resto de hábitos · semana 18</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "100px repeat(7, 1fr)", gap: 3, marginBottom: 8 }}>
-          <div />
-          {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "#4B5563" }}>{d}</div>)}
-        </div>
-        {data.habitos.reglas.slice(1).map((h, idx) => {
-          const ri = idx + 1;
-          return (
-            <div key={ri} style={{ display: "grid", gridTemplateColumns: "100px repeat(7, 1fr)", gap: 3, marginBottom: 4, alignItems: "center" }}>
-              <div style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 4 }}>{h.nombre}</div>
-              {data.habitos.semana[ri].map((v, di) => (
-                <div key={di} onClick={() => toggleHabito(ri, di)}
-                  style={{ height: 24, borderRadius: 6, cursor: "pointer",
-                    background: v === true ? "#34C77B" : v === null ? "transparent" : "#1E2A3A",
-                    border: v === null ? "1.5px dashed #2D3748" : v === true ? "none" : "1px solid #2D3748",
-                    display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {v === true && <span style={{ fontSize: 10, color: "#0D1117" }}>✓</span>}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </Card>
-
-      <Card>
-        <SectionTitle>Consistencia</SectionTitle>
-        {data.habitos.reglas.map((h, ri) => (
-          <div key={ri} style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: "#D1D5DB" }}>{h.nombre}</span>
-              <span style={{ fontSize: 11, color: "#6B7280" }}>{totales[ri]} / 7</span>
-            </div>
-            <ProgressBar value={totales[ri]} max={7}
-              color={totales[ri] >= 6 ? "#34C77B" : totales[ri] >= 4 ? "#F5A623" : "#FF6B6B"} height={3} />
-          </div>
-        ))}
-      </Card>
-    </div>
-  );
-}
-
+// ─── COMIDA ─────────────────────────────────────────────
 function ComidaTab({ data, setData }) {
   const completadas = data.comidas.plan.filter(c => c.completado);
   const tot = completadas.reduce((s, c) => ({
     cal: s.cal + c.cal, prot: s.prot + c.prot, carb: s.carb + c.carb, gra: s.gra + c.gra
   }), { cal: 0, prot: 0, carb: 0, gra: 0 });
 
-  const toggleComida = (id) => {
-    setData(prev => ({ ...prev, comidas: { ...prev.comidas, plan: prev.comidas.plan.map(c => c.id === id ? { ...c, completado: !c.completado } : c) } }));
-  };
-
-  const toggleSupp = (id) => {
-    setData(prev => ({ ...prev, comidas: { ...prev.comidas, suplementos: prev.comidas.suplementos.map(s => s.id === id ? { ...s, completado: !s.completado } : s) } }));
-  };
-
-  const addAgua = (n) => {
-    setData(prev => ({ ...prev, comidas: { ...prev.comidas, agua: Math.min(prev.comidas.agua + n, prev.comidas.metaAgua) } }));
-  };
+  const toggleComida = (id) => setData(prev => ({ ...prev, comidas: { ...prev.comidas, plan: prev.comidas.plan.map(c => c.id === id ? { ...c, completado: !c.completado } : c) } }));
+  const toggleSupp = (id) => setData(prev => ({ ...prev, comidas: { ...prev.comidas, suplementos: prev.comidas.suplementos.map(s => s.id === id ? { ...s, completado: !s.completado } : s) } }));
+  const addAgua = (n) => setData(prev => ({ ...prev, comidas: { ...prev.comidas, agua: Math.min(prev.comidas.agua + n, prev.comidas.metaAgua) } }));
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
@@ -625,8 +719,7 @@ function ComidaTab({ data, setData }) {
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           {[1, 2, 3].map(n => (
             <button key={n} onClick={() => addAgua(n)}
-              style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 600, background: "#1E2A3A", color: "#5B8DEF",
-                border: "1px solid #1E3A5F", borderRadius: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 600, background: "#1E2A3A", color: "#5B8DEF", border: "1px solid #1E3A5F", borderRadius: 10, cursor: "pointer", fontFamily: "inherit" }}>
               +{n} vaso{n > 1 ? "s" : ""}
             </button>
           ))}
@@ -655,6 +748,7 @@ function ComidaTab({ data, setData }) {
   );
 }
 
+// ─── CUERPO ─────────────────────────────────────────────
 function CuerpoTab({ data, setData }) {
   const fileRef = useRef(null);
   const [editPeso, setEditPeso] = useState(false);
@@ -668,13 +762,7 @@ function CuerpoTab({ data, setData }) {
   const guardarPeso = () => {
     const num = parseFloat(pesoTemp);
     if (isNaN(num)) { setEditPeso(false); return; }
-    setData(prev => ({
-      ...prev,
-      perfil: {
-        ...prev.perfil, pesoActual: num,
-        historialPeso: [...prev.perfil.historialPeso, { fecha: new Date().toISOString().slice(0, 10), peso: num }]
-      }
-    }));
+    setData(prev => ({ ...prev, perfil: { ...prev.perfil, pesoActual: num } }));
     setEditPeso(false);
   };
 
@@ -683,10 +771,7 @@ function CuerpoTab({ data, setData }) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setData(prev => ({
-        ...prev,
-        fotosProgreso: [{ id: uid(), fecha: new Date().toISOString().slice(0, 10), data: ev.target.result }, ...prev.fotosProgreso]
-      }));
+      setData(prev => ({ ...prev, fotosProgreso: [{ id: uid(), fecha: hoy(), data: ev.target.result }, ...prev.fotosProgreso] }));
     };
     reader.readAsDataURL(file);
   };
@@ -697,12 +782,7 @@ function CuerpoTab({ data, setData }) {
     setData(prev => ({
       ...prev,
       whoop: {
-        historial: [{
-          fecha: new Date().toISOString().slice(0, 10),
-          recovery: r, sueno: s,
-          strain: parseFloat(whoopForm.strain) || 0,
-          hrv: parseFloat(whoopForm.hrv) || 0,
-        }, ...prev.whoop.historial]
+        historial: [{ fecha: hoy(), recovery: r, sueno: s, strain: parseFloat(whoopForm.strain) || 0, hrv: parseFloat(whoopForm.hrv) || 0 }, ...prev.whoop.historial]
       }
     }));
     setWhoopForm({ recovery: "", sueno: "", strain: "", hrv: "" });
@@ -714,9 +794,7 @@ function CuerpoTab({ data, setData }) {
     setNuevaNota("");
   };
 
-  const delNota = (i) => {
-    setData(prev => ({ ...prev, notasZulma: prev.notasZulma.filter((_, idx) => idx !== i) }));
-  };
+  const delNota = (i) => setData(prev => ({ ...prev, notasZulma: prev.notasZulma.filter((_, idx) => idx !== i) }));
 
   const ultimoWhoop = data.whoop.historial[0];
 
@@ -830,12 +908,9 @@ function CuerpoTab({ data, setData }) {
       </Card>
 
       <Card>
-        <SectionTitle>Compras semanales · Whole Foods</SectionTitle>
+        <SectionTitle>Compras semanales</SectionTitle>
         {data.compras.map(c => (
-          <div key={c.id} onClick={() => setData(prev => ({
-            ...prev,
-            compras: prev.compras.map(x => x.id === c.id ? { ...x, comprado: !x.comprado } : x)
-          }))}
+          <div key={c.id} onClick={() => setData(prev => ({ ...prev, compras: prev.compras.map(x => x.id === c.id ? { ...x, comprado: !x.comprado } : x) }))}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #1E2A3A", cursor: "pointer", opacity: c.comprado ? 0.5 : 1 }}>
             <div style={{ width: 16, height: 16, borderRadius: 5, flexShrink: 0,
               background: c.comprado ? "#34C77B" : "#1E2A3A",
@@ -854,6 +929,7 @@ function CuerpoTab({ data, setData }) {
   );
 }
 
+// ─── APP ────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("home");
   const [data, setDataRaw] = useState(DEFAULT_DATA);
@@ -864,6 +940,21 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Si cambió el día, resetear hoy
+        const today = hoy();
+        if (parsed.habitos?.fechaHoy !== today) {
+          parsed.habitos = { ...parsed.habitos, hoy: {}, fechaHoy: today };
+          parsed.comidas = {
+            ...parsed.comidas,
+            plan: parsed.comidas.plan.map(p => ({ ...p, completado: false })),
+            agua: 0,
+            suplementos: parsed.comidas.suplementos.map(s => ({ ...s, completado: false })),
+          };
+        }
+        // Reset de escudos cada mes
+        if (parsed.reto?.mesActualEscudos !== mesActual()) {
+          parsed.reto = { ...parsed.reto, escudosUsados: 0, mesActualEscudos: mesActual() };
+        }
         setDataRaw({ ...DEFAULT_DATA, ...parsed });
       }
     } catch (_) {}
@@ -884,7 +975,7 @@ export default function App() {
     </div>
   );
 
-  const screens = { home: HomeTab, dinero: DineroTab, habitos: HabitosTab, comida: ComidaTab, cuerpo: CuerpoTab };
+  const screens = { home: HomeTab, reto: RetoTab, habitos: HabitosTab, dinero: DineroTab, comida: ComidaTab, cuerpo: CuerpoTab };
   const Screen = screens[tab];
 
   return (
@@ -908,12 +999,12 @@ export default function App() {
         display: "flex", zIndex: 100 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ flex: 1, padding: "12px 0 20px", background: "none", border: "none", cursor: "pointer",
+            style={{ flex: 1, padding: "10px 0 18px", background: "none", border: "none", cursor: "pointer",
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               opacity: tab === t.id ? 1 : 0.35, transition: "opacity 0.15s" }}>
-            <span style={{ fontSize: 16, color: tab === t.id ? "#5B8DEF" : "#6B7280" }}>{t.icon}</span>
-            <span style={{ fontSize: 9, fontWeight: tab === t.id ? 700 : 400,
-              color: tab === t.id ? "#5B8DEF" : "#6B7280", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 14, color: tab === t.id ? "#F5A623" : "#6B7280" }}>{t.icon}</span>
+            <span style={{ fontSize: 8, fontWeight: tab === t.id ? 700 : 400,
+              color: tab === t.id ? "#F5A623" : "#6B7280", letterSpacing: "0.05em", textTransform: "uppercase" }}>
               {t.label}
             </span>
           </button>
