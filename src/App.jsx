@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const STORAGE_KEY = "edu_dashboard_v7";
+const STORAGE_KEY = "edu_dashboard_v8";
 
 const C = {
   bg: "#FFFFFF",
@@ -44,8 +44,8 @@ const DEFAULT_DATA = {
   comidas: {
     plan: COMIDAS_DEFAULT,
     metas: { cal: 2000, prot: 200, carb: 180, gra: 60 },
-    aguaTermos: 0, // contador de termos tomados
-    metaTermos: 5, // 5 termos × 590ml = 2,950ml ≈ 3L
+    aguaTermos: 0,
+    metaTermos: 5,
     mlPorTermo: 590,
     suplementos: [
       { id: 1, nombre: "DHA 1000", momento: "con desayuno", completado: false },
@@ -65,6 +65,9 @@ const DEFAULT_DATA = {
     gym: false,
     sueno: false,
     aguaCel: false,
+    journal: false,
+    leer: false,
+    terapia: false,
   },
   whoop: { historial: [] },
   fotosProgreso: [],
@@ -79,7 +82,7 @@ const DEFAULT_DATA = {
     { id: 8, item: "Tart cherry juice", categoria: "Noche", comprado: false },
     { id: 9, item: "Whey Double Rich Choc 2lb", categoria: "Suplementos", comprado: false },
   ],
-  exportados: [], // historial de PDFs exportados {fecha, dataSnapshot}
+  exportados: [],
   fechaSync: new Date().toISOString().slice(0, 10),
 };
 
@@ -176,9 +179,12 @@ function exportarPDF(data) {
     nutricion: "Nutrición",
     gym: "Gym 50-60 min",
     sueno: "Sueño 7.5h+",
-    aguaCel: "3L agua + cel off 10:30pm"
+    aguaCel: "3L agua + cel off 10:30pm",
+    journal: "Journal",
+    leer: "Leer 20 min",
+    terapia: "Terapia 1 hora"
   };
-  const pilaresStatus = Object.entries(data.pilaresHoy).map(([k, v]) => `${v ? "✓" : "✗"} ${pilaresLabels[k]}`).join("<br>");
+  const pilaresStatus = Object.entries(data.pilaresHoy).map(([k, v]) => `${v ? "✓" : "✗"} ${pilaresLabels[k] || k}`).join("<br>");
 
   const html = `<!DOCTYPE html>
 <html>
@@ -199,7 +205,7 @@ function exportarPDF(data) {
   td:last-child { text-align: right; color: #6E6E73; }
   .meta-bar { background: #F5F5F7; height: 6px; border-radius: 99px; overflow: hidden; margin-top: 4px; }
   .meta-bar-fill { height: 100%; border-radius: 99px; }
-  .pilar { padding: 6px 0; font-size: 13px; }
+  .pilar { padding: 6px 0; font-size: 13px; line-height: 1.9; }
   .ok { color: #34C759; }
   .fail { color: #FF3B30; }
   .footer { margin-top: 40px; text-align: center; color: #86868B; font-size: 11px; }
@@ -288,9 +294,13 @@ function HomeTab({ data, setData }) {
     { key: "gym", label: "Gym 50-60 min", sub: data.gym.grupoHoy ? `${data.gym.grupoHoy} · ${data.gym.ejerciciosHoy.filter(e => e.completado).length}/${data.gym.ejerciciosHoy.length} hechos` : "Sin elegir grupo" },
     { key: "sueno", label: "Sueño 7.5h+", sub: ultimoWhoop ? `${ultimoWhoop.sueno}h registrado` : "Sin registrar Whoop" },
     { key: "aguaCel", label: "3L agua + cel off 10:30pm", sub: `${data.comidas.aguaTermos}/${data.comidas.metaTermos} termos` },
+    { key: "journal", label: "Journal", sub: "Escribir del día" },
+    { key: "leer", label: "Leer 20 min", sub: "Lectura mínima diaria" },
+    { key: "terapia", label: "Terapia 1 hora", sub: "Sesión completa" },
   ];
 
   const completados = pilares.filter(p => data.pilaresHoy[p.key]).length;
+  const total = pilares.length;
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
@@ -346,7 +356,7 @@ function HomeTab({ data, setData }) {
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <SectionTitle>Pilares de hoy</SectionTitle>
-          <Badge label={`${completados}/4`} color={completados === 4 ? C.green : C.orange} />
+          <Badge label={`${completados}/${total}`} color={completados === total ? C.green : C.orange} />
         </div>
         {pilares.map((p, idx) => {
           const done = data.pilaresHoy[p.key];
@@ -369,13 +379,12 @@ function HomeTab({ data, setData }) {
         })}
       </Card>
 
-      {/* Botón exportar PDF */}
       <button onClick={() => exportarPDF(data)}
         style={{ width: "100%", padding: 14, background: C.bg, color: C.blue, border: `1.5px solid ${C.blue}40`, borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 12 }}>
         📄 Exportar reporte de hoy
       </button>
 
-      {completados === 4 && (
+      {completados === total && (
         <Card style={{ background: C.green + "10", border: `1px solid ${C.green}30`, textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 6 }}>🔥</div>
           <div style={{ fontSize: 14, color: C.green, fontWeight: 600 }}>Día perfecto · ve a Reto para sumarlo</div>
@@ -385,7 +394,7 @@ function HomeTab({ data, setData }) {
   );
 }
 
-// ─── RETO (manual, simple) ────────────────────────────
+// ─── RETO ─────────────────────────────────────────────
 function RetoTab({ data, setData }) {
   const yaRegistrado = data.reto.historial.find(h => h.fecha === hoy());
 
@@ -418,7 +427,6 @@ function RetoTab({ data, setData }) {
     if (!confirm("¿Borrar el registro de hoy y recalcular?")) return;
     setData(prev => {
       const sinHoy = prev.reto.historial.filter(h => h.fecha !== hoy());
-      // Recalcular diaActual: contar consecutivos hacia atrás desde el último completado
       let dia = 0;
       const ordenados = [...sinHoy].sort((a, b) => a.fecha.localeCompare(b.fecha));
       for (let i = ordenados.length - 1; i >= 0; i--) {
@@ -448,7 +456,6 @@ function RetoTab({ data, setData }) {
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      {/* Hero */}
       <Card style={{ background: `linear-gradient(135deg, ${C.orange}10 0%, ${C.bg} 60%)`, border: `1px solid ${C.orange}30`, padding: 28, textAlign: "center" }}>
         <div style={{ fontSize: 12, color: C.orange, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>{data.reto.nombre}</div>
         <div style={{ fontSize: 96, fontWeight: 700, color: C.text, letterSpacing: "-0.05em", lineHeight: 0.9 }}>
@@ -465,7 +472,6 @@ function RetoTab({ data, setData }) {
         </div>
       </Card>
 
-      {/* Botones de acción */}
       <Card>
         <SectionTitle>Hoy · {new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
 
@@ -501,7 +507,6 @@ function RetoTab({ data, setData }) {
         )}
       </Card>
 
-      {/* Stats */}
       {totalDias > 0 && (
         <Card>
           <SectionTitle>Estadísticas</SectionTitle>
@@ -522,7 +527,6 @@ function RetoTab({ data, setData }) {
         </Card>
       )}
 
-      {/* Historial visual */}
       <Card>
         <SectionTitle>Últimos 30 días</SectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
@@ -554,7 +558,6 @@ function RetoTab({ data, setData }) {
         </div>
       </Card>
 
-      {/* Reset */}
       <Card>
         <SectionTitle>Reiniciar reto</SectionTitle>
         <div style={{ fontSize: 12, color: C.text2, marginBottom: 12, lineHeight: 1.5 }}>
@@ -641,7 +644,6 @@ function ComidaTab({ data, setData }) {
 
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
-      {/* Macros hero */}
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
@@ -669,7 +671,6 @@ function ComidaTab({ data, setData }) {
         </div>
       </Card>
 
-      {/* Comidas */}
       <Card>
         <SectionTitle>Comidas del día · toca para marcar</SectionTitle>
         {data.comidas.plan.map(c => {
@@ -751,7 +752,6 @@ function ComidaTab({ data, setData }) {
         })}
       </Card>
 
-      {/* Agua con termos editables */}
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionTitle>Agua · meta {(mlMeta / 1000).toFixed(2)}L</SectionTitle>
@@ -817,7 +817,6 @@ function ComidaTab({ data, setData }) {
         )}
       </Card>
 
-      {/* Suplementos */}
       <Card>
         <SectionTitle>Suplementos</SectionTitle>
         {data.comidas.suplementos.map((s, idx) => (
@@ -1081,7 +1080,7 @@ function GymTab({ data, setData }) {
   );
 }
 
-// ─── CUERPO (sin Zulma) ───────────────────────────────
+// ─── CUERPO (grid arreglado) ──────────────────────────
 function CuerpoTab({ data, setData }) {
   const fileRef = useRef(null);
   const [whoopForm, setWhoopForm] = useState({ recovery: "", sueno: "", strain: "", hrv: "", calories: "" });
@@ -1116,6 +1115,28 @@ function CuerpoTab({ data, setData }) {
 
   const ultimoWhoop = data.whoop.historial[0];
 
+  // Box uniforme — todas las metrics usan este componente para garantizar mismo tamaño
+  const MetricBox = ({ value, label, color, suffix = "" }) => (
+    <div style={{
+      background: C.bg2,
+      borderRadius: 10,
+      padding: "12px 8px",
+      textAlign: "center",
+      minHeight: 64,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+    }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+        {value}{suffix}
+      </div>
+      <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, marginTop: 4, letterSpacing: "0.02em" }}>
+        {label}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ animation: "fadeUp 0.35s ease both" }}>
       <Card>
@@ -1124,34 +1145,21 @@ function CuerpoTab({ data, setData }) {
           {ultimoWhoop && <Badge label={`recovery ${ultimoWhoop.recovery}%`} color={ultimoWhoop.recovery > 67 ? C.green : ultimoWhoop.recovery > 33 ? C.orange : C.red} />}
         </div>
         {ultimoWhoop && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-            <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>{ultimoWhoop.recovery}%</div>
-              <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Recovery</div>
-            </div>
-            <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.blue }}>{ultimoWhoop.sueno}h</div>
-              <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Sueño</div>
-            </div>
-            <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.orange }}>{ultimoWhoop.strain}</div>
-              <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Strain</div>
-            </div>
-            <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.purple }}>{ultimoWhoop.hrv}</div>
-              <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>HRV</div>
-            </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 6,
+            marginBottom: 10,
+          }}>
+            <MetricBox value={ultimoWhoop.recovery} suffix="%" label="Recovery" color={C.green} />
+            <MetricBox value={ultimoWhoop.sueno} suffix="h" label="Sueño" color={C.blue} />
+            <MetricBox value={ultimoWhoop.strain} label="Strain" color={C.orange} />
+            <MetricBox value={ultimoWhoop.hrv} label="HRV" color={C.purple} />
             {ultimoWhoop.calories > 0 && (
-              <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.red }}>{ultimoWhoop.calories}</div>
-                <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Cal Whoop</div>
-              </div>
+              <MetricBox value={ultimoWhoop.calories} label="Cal Whoop" color={C.red} />
             )}
             {ultimoWhoop.garmin > 0 && (
-              <div style={{ background: C.bg2, borderRadius: 10, padding: 10, textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.red }}>{ultimoWhoop.garmin}</div>
-                <div style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Cal Garmin</div>
-              </div>
+              <MetricBox value={ultimoWhoop.garmin} label="Cal Garmin" color={C.red} />
             )}
           </div>
         )}
@@ -1234,6 +1242,17 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         const today = hoy();
+        // Migra pilares antiguos (4) al shape nuevo (7)
+        parsed.pilaresHoy = {
+          nutricion: false,
+          gym: false,
+          sueno: false,
+          aguaCel: false,
+          journal: false,
+          leer: false,
+          terapia: false,
+          ...(parsed.pilaresHoy || {}),
+        };
         if (parsed.fechaSync !== today) {
           parsed.fechaSync = today;
           parsed.comidas = {
@@ -1243,7 +1262,7 @@ export default function App() {
             suplementos: parsed.comidas.suplementos.map(s => ({ ...s, completado: false })),
           };
           parsed.gym = { ...parsed.gym, grupoHoy: null, ejerciciosHoy: [], completado: false, fechaHoy: today };
-          parsed.pilaresHoy = { nutricion: false, gym: false, sueno: false, aguaCel: false };
+          parsed.pilaresHoy = { nutricion: false, gym: false, sueno: false, aguaCel: false, journal: false, leer: false, terapia: false };
         }
         setDataRaw({ ...DEFAULT_DATA, ...parsed });
       }
