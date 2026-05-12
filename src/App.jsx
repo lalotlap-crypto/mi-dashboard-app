@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import {
   Dumbbell, Utensils, PenLine, BookOpen, Heart, Flame, Target,
-  Activity, Plus, Trash2, FileDown, Moon, Sparkles, Zap, Check
+  Activity, Plus, Trash2, FileDown, Moon, Sparkles, Zap, Check,
+  Wheat, Droplet
 } from "lucide-react";
 
 const STORAGE_KEY = "eduardo_os_v4";
-const METAS = { kcal_max: 2000, prote: 200 };
+const METAS = { kcal_max: 2000, prote: 200, carbs: 150, grasa: 65 };
 
 const fmtDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -37,6 +38,21 @@ body { background: #0a0a0a; }
 .os-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .os-stat-value { font-size: 24px; font-weight: 600; line-height: 1.1; }
 .os-stat-sub { font-size: 11px; color: #737373; margin-top: 2px; }
+.os-stat-bar { margin-top: 10px; height: 4px; background: #262626; border-radius: 2px; overflow: hidden; }
+.os-stat-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.os-bar-amber { background: #fbbf24; }
+.os-bar-emerald { background: #34d399; }
+.os-bar-sky { background: #38bdf8; }
+.os-bar-violet { background: #a78bfa; }
+.os-bar-rose { background: #fb7185; }
+.os-bar-over { background: #f87171; }
+
+.os-whoop-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.os-whoop-summary-card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 14px; }
+.os-whoop-summary-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.os-whoop-summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.os-whoop-summary-value { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.os-whoop-summary-sub { font-size: 11px; color: #737373; margin-top: 2px; }
 
 .os-amber { color: #fbbf24; }
 .os-emerald { color: #34d399; }
@@ -240,10 +256,29 @@ export default function App() {
           </header>
 
           <div className="os-stats">
-            <StatCard icon={Flame} label="Calorías" value={Math.round(totals.kcal)} sub={"/ " + METAS.kcal_max + " máx"} color="amber" />
-            <StatCard icon={Zap} label="Proteína" value={Math.round(totals.prote) + "g"} sub={"/ " + METAS.prote + "g meta"} color="emerald" />
-            <StatCard icon={Activity} label="Recovery" value={day.whoop?.recovery ? day.whoop.recovery + "%" : "—"} sub="Whoop" color="sky" />
-            <StatCard icon={Moon} label="Sueño" value={day.whoop?.sleep_hours ? day.whoop.sleep_hours + "h" : "—"} sub={day.whoop?.sleep_perf ? day.whoop.sleep_perf + "% perf" : "Whoop"} color="violet" />
+            <StatCard icon={Flame} label="Calorías" value={Math.round(totals.kcal)} sub={"/ " + METAS.kcal_max + " máx"} color="amber" current={totals.kcal} target={METAS.kcal_max} isMax />
+            <StatCard icon={Zap} label="Proteína" value={Math.round(totals.prote) + "g"} sub={"/ " + METAS.prote + "g meta"} color="emerald" current={totals.prote} target={METAS.prote} />
+            <StatCard icon={Wheat} label="Carbs" value={Math.round(totals.carbs) + "g"} sub={"/ " + METAS.carbs + "g meta"} color="sky" current={totals.carbs} target={METAS.carbs} />
+            <StatCard icon={Droplet} label="Grasa" value={Math.round(totals.fat) + "g"} sub={"/ " + METAS.grasa + "g meta"} color="rose" current={totals.fat} target={METAS.grasa} />
+          </div>
+
+          <div className="os-whoop-summary">
+            <div className="os-whoop-summary-card">
+              <div className="os-whoop-summary-header os-violet">
+                <Activity size={14} />
+                <span className="os-whoop-summary-label">Recovery</span>
+              </div>
+              <div className="os-whoop-summary-value">{day.whoop?.recovery ? day.whoop.recovery + "%" : "—"}</div>
+              <div className="os-whoop-summary-sub">Whoop</div>
+            </div>
+            <div className="os-whoop-summary-card">
+              <div className="os-whoop-summary-header os-violet">
+                <Moon size={14} />
+                <span className="os-whoop-summary-label">Sueño</span>
+              </div>
+              <div className="os-whoop-summary-value">{day.whoop?.sleep_hours ? day.whoop.sleep_hours + "h" : "—"}</div>
+              <div className="os-whoop-summary-sub">{day.whoop?.sleep_perf ? day.whoop.sleep_perf + "% perf" : "Whoop"}</div>
+            </div>
           </div>
 
           <Section icon={Utensils} title="Comida" subtitle="Agrega cada comida con sus macros">
@@ -402,7 +437,10 @@ export default function App() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, color }) {
+function StatCard({ icon: Icon, label, value, sub, color, current, target, isMax }) {
+  const pct = target ? Math.min(100, (current / target) * 100) : 0;
+  const over = isMax && current > target;
+  const barColor = over ? "os-bar-over" : "os-bar-" + color;
   return (
     <div className="os-stat">
       <div className={"os-stat-header os-" + color}>
@@ -411,6 +449,11 @@ function StatCard({ icon: Icon, label, value, sub, color }) {
       </div>
       <div className="os-stat-value">{value}</div>
       <div className="os-stat-sub">{sub}</div>
+      {target ? (
+        <div className="os-stat-bar">
+          <div className={"os-stat-bar-fill " + barColor} style={{ width: pct + "%" }}></div>
+        </div>
+      ) : null}
     </div>
   );
 }
