@@ -14,7 +14,7 @@ const fmtDate = (d) =>
 const defaultDay = () => ({
   meals: [],
   workouts: [],
-  whoop: { recovery: "", sleep_hours: "", sleep_perf: "", hrv: "", rhr: "" },
+  whoop: { recovery: "", sleep_hours: "", sleep_perf: "", hrv: "", rhr: "", kcal_burned: "" },
   journal: false,
   leer: "",
   terapia: false,
@@ -53,6 +53,24 @@ body { background: #0a0a0a; }
 .os-whoop-summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .os-whoop-summary-value { font-size: 22px; font-weight: 600; line-height: 1.1; }
 .os-whoop-summary-sub { font-size: 11px; color: #737373; margin-top: 2px; }
+
+.os-balance-card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 16px; margin-bottom: 24px; }
+.os-balance-header { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.os-balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #fbbf24; }
+.os-balance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.os-balance-sub { font-size: 10px; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.os-balance-value { font-size: 16px; font-weight: 600; color: #f5f5f5; }
+.os-balance-deficit { color: #34d399; }
+.os-balance-surplus { color: #f87171; }
+
+.os-print-recap { background: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+.os-print-recap-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #d1d5db; padding-bottom: 8px; }
+.os-print-recap-block { margin-bottom: 14px; }
+.os-print-recap-block:last-child { margin-bottom: 0; }
+.os-print-recap-h { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #4b5563; margin-bottom: 6px; }
+.os-print-recap-row { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+.os-print-recap-row .os-print-ok { color: #047857; font-weight: 600; }
+.os-print-recap-row .os-print-bad { color: #b91c1c; font-weight: 600; }
 
 .os-amber { color: #fbbf24; }
 .os-emerald { color: #34d399; }
@@ -262,6 +280,31 @@ export default function App() {
             <StatCard icon={Droplet} label="Grasa" value={Math.round(totals.fat) + "g"} sub={"/ " + METAS.grasa + "g meta"} color="rose" current={totals.fat} target={METAS.grasa} />
           </div>
 
+          {day.whoop?.kcal_burned ? (
+            <div className="os-balance-card">
+              <div className="os-balance-header">
+                <Flame size={14} className="os-amber" />
+                <span className="os-balance-label">Balance energético</span>
+              </div>
+              <div className="os-balance-grid">
+                <div>
+                  <div className="os-balance-sub">Comido</div>
+                  <div className="os-balance-value">{Math.round(totals.kcal)}</div>
+                </div>
+                <div>
+                  <div className="os-balance-sub">Quemado</div>
+                  <div className="os-balance-value">{Math.round(parseFloat(day.whoop.kcal_burned))}</div>
+                </div>
+                <div>
+                  <div className="os-balance-sub">{totals.kcal < parseFloat(day.whoop.kcal_burned) ? "Déficit" : "Superávit"}</div>
+                  <div className={"os-balance-value " + (totals.kcal < parseFloat(day.whoop.kcal_burned) ? "os-balance-deficit" : "os-balance-surplus")}>
+                    {Math.abs(Math.round(totals.kcal - parseFloat(day.whoop.kcal_burned)))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="os-whoop-summary">
             <div className="os-whoop-summary-card">
               <div className="os-whoop-summary-header os-violet">
@@ -372,6 +415,7 @@ export default function App() {
                 <WhoopField label="Sleep perf" suffix="%" value={day.whoop?.sleep_perf || ""} onChange={(v) => updateWhoop("sleep_perf", v)} />
                 <WhoopField label="HRV" suffix="ms" value={day.whoop?.hrv || ""} onChange={(v) => updateWhoop("hrv", v)} />
                 <WhoopField label="RHR" suffix="bpm" value={day.whoop?.rhr || ""} onChange={(v) => updateWhoop("rhr", v)} />
+                <WhoopField label="Kcal quemadas" suffix="kcal" value={day.whoop?.kcal_burned || ""} onChange={(v) => updateWhoop("kcal_burned", v)} />
               </div>
             </div>
           </Section>
@@ -586,6 +630,66 @@ function PrintView({ day, totals, dateLabel }) {
         <h2 className="os-print-h2">Mente</h2>
         <div className="os-print-mente">
           Journal: {day.journal ? "✓ hecho" : "—"} · Lectura: {day.leer ? day.leer + " min" : "—"} · Terapia: {day.terapia ? "✓ hecho" : "—"}
+        </div>
+
+        <div className="os-print-recap">
+          <div className="os-print-recap-title">Recap del día</div>
+
+          {day.whoop?.kcal_burned ? (
+            <div className="os-print-recap-block">
+              <div className="os-print-recap-h">Balance energético</div>
+              <div className="os-print-recap-row"><span>Comido</span><span>{Math.round(totals.kcal)} kcal</span></div>
+              <div className="os-print-recap-row"><span>Quemado</span><span>{Math.round(parseFloat(day.whoop.kcal_burned))} kcal</span></div>
+              <div className="os-print-recap-row">
+                <span>{totals.kcal < parseFloat(day.whoop.kcal_burned) ? "Déficit" : "Superávit"}</span>
+                <span className={totals.kcal < parseFloat(day.whoop.kcal_burned) ? "os-print-ok" : "os-print-bad"}>
+                  {Math.abs(Math.round(totals.kcal - parseFloat(day.whoop.kcal_burned)))} kcal
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="os-print-recap-block">
+            <div className="os-print-recap-h">Macros vs meta</div>
+            <div className="os-print-recap-row">
+              <span>Calorías</span>
+              <span className={totals.kcal <= 2000 ? "os-print-ok" : "os-print-bad"}>
+                {Math.round(totals.kcal)} / 2000 {totals.kcal <= 2000 ? "✓" : "✗"}
+              </span>
+            </div>
+            <div className="os-print-recap-row">
+              <span>Proteína</span>
+              <span className={totals.prote >= 200 ? "os-print-ok" : "os-print-bad"}>
+                {Math.round(totals.prote)}g / 200g {totals.prote >= 200 ? "✓" : "✗"}
+              </span>
+            </div>
+            <div className="os-print-recap-row"><span>Carbs</span><span>{Math.round(totals.carbs)}g / 150g</span></div>
+            <div className="os-print-recap-row"><span>Grasa</span><span>{Math.round(totals.fat)}g / 65g</span></div>
+          </div>
+
+          <div className="os-print-recap-block">
+            <div className="os-print-recap-h">Disciplina</div>
+            <div className="os-print-recap-row">
+              <span>Entrenó</span>
+              <span className={day.workouts.length > 0 ? "os-print-ok" : "os-print-bad"}>
+                {day.workouts.length > 0 ? "✓ " + day.workouts.length + " ejercicios" : "✗ Sin entreno"}
+              </span>
+            </div>
+            <div className="os-print-recap-row">
+              <span>Journal</span>
+              <span className={day.journal ? "os-print-ok" : "os-print-bad"}>{day.journal ? "✓" : "✗"}</span>
+            </div>
+            <div className="os-print-recap-row">
+              <span>Lectura</span>
+              <span className={day.leer && parseInt(day.leer) > 0 ? "os-print-ok" : "os-print-bad"}>
+                {day.leer && parseInt(day.leer) > 0 ? "✓ " + day.leer + " min" : "✗"}
+              </span>
+            </div>
+            <div className="os-print-recap-row">
+              <span>Terapia</span>
+              <span className={day.terapia ? "os-print-ok" : "os-print-bad"}>{day.terapia ? "✓" : "✗"}</span>
+            </div>
+          </div>
         </div>
 
         <div className="os-print-footer">Generado el {new Date().toLocaleString("es-MX")}</div>
